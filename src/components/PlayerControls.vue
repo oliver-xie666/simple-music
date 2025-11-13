@@ -1,129 +1,156 @@
 <template>
-  <div class="px-8 py-5 flex flex-col gap-4" style="grid-area: controls;">
-    <!-- 进度条 -->
-    <div class="flex items-center gap-4">
-      <span class="text-sm text-gray-500 dark:text-gray-400 w-12 text-right font-mono">{{ store.formattedCurrentTime }}</span>
-      <div 
-        class="flex-1 h-10 flex items-center cursor-pointer group"
-        @click="handleProgressClick"
-      >
-        <div class="w-full h-2 bg-gray-300/50 dark:bg-gray-600/50 rounded-full relative overflow-hidden">
-          <div 
-            class="absolute left-0 top-0 h-full bg-gradient-to-r from-teal-400 to-emerald-500 rounded-full transition-all duration-150"
-            :style="{ width: `${store.progress}%` }"
-          ></div>
-          <div 
-            class="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition"
-            :style="{ left: `calc(${store.progress}% - 8px)` }"
-          ></div>
-        </div>
-      </div>
-      <span class="text-sm text-gray-500 dark:text-gray-400 w-12 text-left font-mono">{{ store.formattedDuration }}</span>
-    </div>
-
-    <!-- 控制按钮 + 工具栏 -->
-    <div class="flex items-center justify-between">
-      <!-- 左侧：播放模式 + 上一曲 -->
-      <div class="flex items-center gap-2">
-        <button 
-          @click="cyclePlayMode"
-          class="w-11 h-11 rounded-lg bg-transparent hover:bg-teal-100 dark:hover:bg-gray-700 flex items-center justify-center transition"
-          :title="playModeText"
-        >
-          <i v-if="store.playMode === 'list-loop'" class="i-carbon-repeat text-xl"></i>
-          <i v-else-if="store.playMode === 'single-loop'" class="i-carbon-repeat-one text-xl"></i>
-          <i v-else class="i-carbon-shuffle text-xl"></i>
-        </button>
-        <button 
-          @click="store.playPrevious()"
-          class="w-11 h-11 rounded-lg bg-transparent hover:bg-teal-100 dark:hover:bg-gray-700 flex items-center justify-center transition"
-          :disabled="store.playlist.length === 0"
-        >
-          <i class="i-carbon-skip-back text-xl"></i>
-        </button>
-      </div>
-
-      <!-- 中间：播放/暂停按钮 -->
+  <div 
+    class="flex items-center gap-5 w-full transition-all duration-500"
+    style="grid-area: controls; display: grid; grid-template-columns: 300px minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: 'transport progress trailing'; align-items: center; column-gap: 20px; row-gap: 12px;"
+  >
+    <!-- 左侧：播放控制 -->
+    <div class="flex items-center gap-3 justify-self-start" style="grid-area: transport;">
+      <!-- 播放模式 -->
       <button 
-        @click="togglePlay"
-        class="w-16 h-16 rounded-full bg-gradient-to-r from-teal-400 to-emerald-500 hover:from-teal-500 hover:to-emerald-600 text-white flex items-center justify-center transition-all shadow-xl hover:scale-105 hover:shadow-2xl"
-        :disabled="!store.currentSong && store.playlist.length === 0"
+        @click="cyclePlayMode" 
+        class="bg-[#1abc9c] text-white border-none rounded-full cursor-pointer w-12.5 h-12.5 flex justify-center items-center transition-all duration-200 hover:bg-[#12836d]"
+        :title="playModeTitle"
+        style="font-size: 1.2em; box-shadow: 0 4px 10px rgba(0,0,0,0.1);"
       >
-        <i v-if="store.isLoading" class="i-carbon-circle-dash animate-spin text-3xl"></i>
-        <i v-else-if="store.isPlaying" class="i-carbon-pause-filled text-3xl"></i>
-        <i v-else class="i-carbon-play-filled text-3xl ml-1"></i>
+        <i :class="playModeIcon"></i>
       </button>
 
-      <!-- 右侧：下一曲 + 随机播放 -->
-      <div class="flex items-center gap-2">
-        <button 
-          @click="store.playNext()"
-          class="w-11 h-11 rounded-lg bg-transparent hover:bg-teal-100 dark:hover:bg-gray-700 flex items-center justify-center transition"
-          :disabled="store.playlist.length === 0"
-        >
-          <i class="i-carbon-skip-forward text-xl"></i>
-        </button>
-        <button 
-          @click="handleExploreRadar"
-          :disabled="isExploring"
-          class="w-11 h-11 rounded-lg bg-transparent hover:bg-teal-100 dark:hover:bg-gray-700 flex items-center justify-center transition"
-          title="探索雷达"
-        >
-          <i 
-            :class="isExploring ? 'i-carbon-circle-dash animate-spin' : 'i-carbon-satellite'"
-            class="text-xl"
-          ></i>
-        </button>
-      </div>
+      <!-- 上一曲 -->
+      <button 
+        @click="store.playPrevious" 
+        class="bg-[#1abc9c] text-white border-none rounded-full cursor-pointer w-12.5 h-12.5 flex justify-center items-center transition-all duration-200 hover:bg-[#12836d]"
+        style="font-size: 1.2em; box-shadow: 0 4px 10px rgba(0,0,0,0.1);"
+        :disabled="store.playlist.length === 0"
+      >
+        <i class="fas fa-backward-step"></i>
+      </button>
+
+      <!-- 播放/暂停 -->
+      <button 
+        @click="togglePlay" 
+        class="bg-[#1abc9c] text-white border-none rounded-full cursor-pointer w-15 h-15 flex justify-center items-center transition-all duration-200 hover:bg-[#12836d]"
+        style="font-size: 1.4em; box-shadow: 0 4px 10px rgba(0,0,0,0.1);"
+        :disabled="!store.currentSong && store.playlist.length === 0"
+      >
+        <i v-if="store.isLoading" class="fas fa-spinner fa-spin"></i>
+        <i v-else :class="store.isPlaying ? 'fas fa-pause' : 'fas fa-play'"></i>
+      </button>
+
+      <!-- 下一曲 -->
+      <button 
+        @click="store.playNext" 
+        class="bg-[#1abc9c] text-white border-none rounded-full cursor-pointer w-12.5 h-12.5 flex justify-center items-center transition-all duration-200 hover:bg-[#12836d]"
+        style="font-size: 1.2em; box-shadow: 0 4px 10px rgba(0,0,0,0.1);"
+        :disabled="store.playlist.length === 0"
+      >
+        <i class="fas fa-forward-step"></i>
+      </button>
     </div>
 
-    <!-- 底部工具栏 -->
-    <div class="flex items-center justify-between pt-3 border-t border-gray-300/30 dark:border-gray-600/30">
-      <!-- 音质选择 -->
-      <div class="relative">
-        <button 
-          @click="showQualityMenu = !showQualityMenu"
-          class="px-3 py-1.5 rounded-lg text-sm text-gray-600 dark:text-gray-400 hover:text-teal-500 dark:hover:text-teal-400 hover:bg-teal-50 dark:hover:bg-gray-700/50 transition flex items-center gap-1.5"
-        >
-          <span class="font-500">{{ qualityText }}</span>
-          <i class="i-carbon-chevron-down text-xs"></i>
-        </button>
-        <div 
-          v-if="showQualityMenu"
-          class="absolute bottom-full left-0 mb-2 w-40 bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-lg shadow-2xl border border-teal-400/30 py-1 z-50"
-        >
-          <button
-            v-for="q in qualities"
-            :key="q.value"
-            @click="selectQuality(q.value)"
-            class="w-full px-3 py-2 text-left text-sm hover:bg-teal-50 dark:hover:bg-gray-700 transition"
-            :class="{ 'bg-teal-50 dark:bg-gray-700 text-teal-600 dark:text-teal-400 font-500': store.quality === q.value }"
+    <!-- 中间：进度条 -->
+    <div class="flex items-center gap-3 min-w-[260px] w-full justify-self-stretch" style="grid-area: progress;">
+      <span 
+        class="text-0.85em" 
+        :class="store.isDark ? 'text-[#95a5a6]' : 'text-[#7f8c8d]'"
+        style="font-variant-numeric: tabular-nums;"
+      >
+        {{ store.formattedCurrentTime }}
+      </span>
+      <input 
+        type="range" 
+        :value="store.currentTime" 
+        @input="seekAudio"
+        :max="store.duration || 0"
+        step="0.1"
+        class="flex-1 h-2 rounded-full cursor-pointer transition-all duration-200 appearance-none bg-transparent"
+        :style="{
+          background: `linear-gradient(to right, #1abc9c 0%, #1abc9c ${store.progress}%, rgba(255, 255, 255, 0.5) ${store.progress}%, rgba(255, 255, 255, 0.2) 100%)`
+        }"
+      />
+      <span 
+        class="text-0.85em" 
+        :class="store.isDark ? 'text-[#95a5a6]' : 'text-[#7f8c8d]'"
+        style="font-variant-numeric: tabular-nums;"
+      >
+        {{ store.formattedDuration }}
+      </span>
+    </div>
+
+    <!-- 右侧：音质、音量、探索雷达 -->
+    <div class="flex items-center justify-between gap-5 w-full flex-wrap" style="grid-area: trailing;">
+      <div class="flex items-center gap-4 flex-wrap justify-start flex-1">
+        <!-- 音质选择 -->
+        <div class="relative">
+          <button 
+            @click="showQualityMenu = !showQualityMenu"
+            class="flex items-center justify-center gap-0 px-4 py-2.5 rounded-2 border font-medium cursor-pointer transition-all duration-200"
+            :class="[
+              showQualityMenu ? 'border-[#1abc9c] text-[#1abc9c]' : store.isDark ? 'text-[#ecf0f1] border-white/15' : 'text-[#2c3e50] border-black/10',
+              store.isDark ? 'bg-[#2c2c2c]/50' : 'bg-white/50'
+            ]"
+            style="font-size: 0.9em; box-shadow: none;"
           >
-            {{ q.label }}
+            <span>{{ qualityText }}</span>
           </button>
+          
+          <div 
+            v-show="showQualityMenu"
+            class="absolute top-[calc(100%+10px)] right-0 rounded-3 border min-w-[180px] overflow-hidden z-[100000] transition-all duration-200"
+            :class="store.isDark ? 'bg-[#1c1c1c] border-white/15' : 'bg-white border-black/10'"
+            style="box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);"
+          >
+            <div 
+              v-for="q in qualities"
+              :key="q.value"
+              @click="selectQuality(q.value)"
+              class="flex justify-between items-center gap-2 px-3.5 py-2.5 text-0.9em cursor-pointer transition-all duration-200"
+              :class="[
+                store.quality === q.value 
+                  ? 'bg-[#1abc9c] text-white' 
+                  : store.isDark 
+                    ? 'text-[#ecf0f1] hover:bg-[#1abc9c] hover:text-white' 
+                    : 'text-[#2c3e50] hover:bg-[#1abc9c] hover:text-white'
+              ]"
+            >
+              <span>{{ q.label }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 音量控制 -->
+        <div class="flex items-center gap-2 min-w-[140px]">
+          <i 
+            :class="volumeIcon" 
+            :style="{ color: store.isDark ? '#ecf0f1' : '#2c3e50' }"
+            @click="toggleMute"
+            class="cursor-pointer"
+          ></i>
+          <input 
+            type="range" 
+            :value="store.volume * 100" 
+            @input="updateVolume"
+            min="0" 
+            max="100" 
+            step="1"
+            class="w-[110px] h-1.5 rounded-full cursor-pointer appearance-none bg-transparent"
+            :style="{
+              background: `linear-gradient(to right, #1abc9c 0%, #1abc9c ${store.volume * 100}%, rgba(255, 255, 255, 0.2) ${store.volume * 100}%, rgba(255, 255, 255, 0.1) 100%)`
+            }"
+          />
         </div>
       </div>
 
-      <!-- 音量控制 -->
-      <div class="flex items-center gap-2">
-        <button 
-          @click="toggleMute"
-          class="w-9 h-9 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50 flex items-center justify-center transition"
-        >
-          <i v-if="store.volume === 0" class="i-carbon-volume-mute text-lg"></i>
-          <i v-else-if="store.volume < 0.5" class="i-carbon-volume-down text-lg"></i>
-          <i v-else class="i-carbon-volume-up text-lg"></i>
-        </button>
-        <input 
-          type="range"
-          class="w-28 h-2 bg-gray-300/50 dark:bg-gray-600/50 rounded-full appearance-none cursor-pointer"
-          style="accent-color: #14b8a6"
-          min="0"
-          max="100"
-          :value="store.volume * 100"
-          @input="handleVolumeChange"
-        />
-      </div>
+      <!-- 探索雷达 -->
+      <button 
+        @click="handleExploreRadar" 
+        class="bg-[#1abc9c] text-white border-none rounded-full cursor-pointer flex justify-center items-center transition-all duration-200 px-6.25 gap-2.5 h-12.5 hover:bg-[#12836d]"
+        :disabled="isExploring"
+        :class="isExploring ? 'bg-[#7f8c8d] cursor-not-allowed' : ''"
+        style="width: auto; font-size: 1.2em; box-shadow: 0 4px 10px rgba(0,0,0,0.1);"
+      >
+        <i :class="isExploring ? 'fas fa-spinner fa-spin' : 'fas fa-satellite-dish'"></i>
+        <span class="text-base">探索雷达</span>
+      </button>
     </div>
   </div>
 </template>
@@ -139,21 +166,33 @@ const isExploring = ref(false)
 const lastVolume = ref(0.8)
 
 const qualities = [
-  { value: '128' as QualityType, label: '标准音质 (128k)' },
-  { value: '192' as QualityType, label: '较高音质 (192k)' },
-  { value: '320' as QualityType, label: '极高音质 (320k)' },
-  { value: 'flac' as QualityType, label: '无损音质 (FLAC)' }
+  { value: '128' as QualityType, label: '标准音质' },
+  { value: '192' as QualityType, label: '较高音质' },
+  { value: '320' as QualityType, label: '极高音质' },
+  { value: 'flac' as QualityType, label: '无损音质' }
 ]
 
 const qualityText = computed(() => 
-  qualities.find(q => q.value === store.quality)?.label.split(' ')[0] || '极高音质'
+  qualities.find(q => q.value === store.quality)?.label || '极高音质'
 )
 
-const playModeText = computed(() => ({
-  'list-loop': '列表循环',
-  'single-loop': '单曲循环',
-  'shuffle': '随机播放'
-}[store.playMode]))
+const playModeIcon = computed(() => {
+  if (store.playMode === 'single-loop') return 'fas fa-repeat-1'
+  if (store.playMode === 'shuffle') return 'fas fa-shuffle'
+  return 'fas fa-repeat'
+})
+
+const playModeTitle = computed(() => {
+  if (store.playMode === 'single-loop') return '单曲循环'
+  if (store.playMode === 'shuffle') return '随机播放'
+  return '列表循环'
+})
+
+const volumeIcon = computed(() => {
+  if (store.volume === 0) return 'fas fa-volume-mute'
+  if (store.volume < 0.5) return 'fas fa-volume-down'
+  return 'fas fa-volume-up'
+})
 
 function togglePlay() {
   if (!store.currentSong && store.playlist.length > 0) {
@@ -170,15 +209,14 @@ function cyclePlayMode() {
   store.saveToStorage()
 }
 
-function handleProgressClick(e: MouseEvent) {
-  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-  const percent = (e.clientX - rect.left) / rect.width
-  // 通过自定义事件通知 App.vue
-  window.dispatchEvent(new CustomEvent('seek-audio', { detail: percent }))
+function seekAudio(e: Event) {
+  const value = parseFloat((e.target as HTMLInputElement).value)
+  window.dispatchEvent(new CustomEvent('seek-audio', { detail: value / (store.duration || 1) }))
 }
 
-function handleVolumeChange(e: Event) {
-  store.setVolume(parseInt((e.target as HTMLInputElement).value) / 100)
+function updateVolume(e: Event) {
+  const value = parseInt((e.target as HTMLInputElement).value) / 100
+  store.setVolume(value)
   store.saveToStorage()
 }
 
@@ -198,6 +236,7 @@ function selectQuality(q: QualityType) {
 }
 
 async function handleExploreRadar() {
+  if (isExploring.value) return
   isExploring.value = true
   try {
     const genres = ['流行', '摇滚', '民谣', '电子', '爵士', '说唱']
@@ -207,9 +246,49 @@ async function handleExploreRadar() {
     // 添加前10首到播放列表
     const songs = store.searchResults.slice(0, 10)
     songs.forEach(song => store.addToPlaylist(song))
+    
+    if (songs.length > 0 && !store.currentSong) {
+      store.playAtIndex(0)
+    }
   } finally {
     isExploring.value = false
   }
 }
 </script>
 
+<style scoped>
+/* Range Input 样式 */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #1abc9c;
+  border: 2px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s ease;
+  cursor: pointer;
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #1abc9c;
+  border: 2px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s ease;
+  cursor: pointer;
+}
+
+input[type="range"]:active::-webkit-slider-thumb,
+input[type="range"]:active::-moz-range-thumb {
+  transform: scale(1.1);
+}
+</style>

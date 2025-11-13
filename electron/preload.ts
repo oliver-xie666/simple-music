@@ -13,6 +13,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 封面取色
   extractPalette: (imageUrl: string) => ipcRenderer.invoke('extract-palette', imageUrl),
   
+  // 导入导出
+  importJson: () => ipcRenderer.invoke('import-json'),
+  exportJson: (params: any) => ipcRenderer.invoke('export-json', params),
+  
   // 本地存储
   saveData: (key: string, data: any) => ipcRenderer.invoke('save-data', key, data),
   loadData: (key: string) => ipcRenderer.invoke('load-data', key),

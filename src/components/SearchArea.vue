@@ -1,75 +1,123 @@
 <template>
-  <div class="px-8 py-4" style="grid-area: search;">
-    <!-- 搜索输入框 -->
-    <div class="flex gap-3 mb-4">
+  <div 
+    id="searchArea"
+    class="rounded-4 p-5 border relative z-10 overflow-visible flex flex-col transition-all duration-500"
+    style="grid-area: search; background: rgba(255, 255, 255, 0.5); backdrop-filter: blur(10px);"
+    :class="[
+      store.isDark ? 'bg-[#2c2c2c]/50 border-white/15' : 'bg-white/50 border-black/10'
+    ]"
+  >
+    <div class="flex gap-2.5 items-center mb-3.75 flex-shrink-0">
       <input 
-        v-model="searchQuery"
+        type="text" 
+        v-model="searchQuery" 
         @keyup.enter="handleSearch"
-        type="text"
-        class="flex-1 px-4 py-3 rounded-xl bg-white/60 dark:bg-gray-800/60 backdrop-blur border border-gray-300/50 dark:border-gray-600/50 outline-none focus:border-teal-400 transition text-base"
+        class="flex-1 px-4 py-3 border-2 rounded-3 text-base outline-none transition-all duration-300"
+        :class="[
+          store.isDark ? 'bg-[#2c2c2c]/50 text-[#ecf0f1] border-white/15' : 'bg-white/50 text-[#2c3e50] border-black/10'
+        ]"
         placeholder="搜索歌曲、歌手或专辑..."
-      />
-      <div class="relative">
+      >
+      
+      <!-- 音乐源选择 -->
+      <div class="relative flex-shrink-0">
         <button 
           @click="showMenu = !showMenu"
-          class="px-4 py-3 rounded-xl bg-white/60 dark:bg-gray-800/60 backdrop-blur border border-gray-300/50 dark:border-gray-600/50 hover:border-teal-400 transition flex items-center gap-2 min-w-36"
+          class="flex items-center justify-between gap-2 px-4.5 py-3 border rounded-3 font-medium cursor-pointer transition-all duration-250 min-w-[150px]"
+          :class="[
+            showMenu ? 'border-[#1abc9c] text-[#1abc9c]' : '',
+            store.isDark ? 'bg-[#2c2c2c]/50 text-[#ecf0f1] border-white/15' : 'bg-white/50 text-[#2c3e50] border-black/10'
+          ]"
         >
-          <span class="text-sm font-500">{{ sourceName }}</span>
-          <i class="i-carbon-chevron-down text-sm"></i>
+          <span>{{ sourceName }}</span>
+          <i 
+            class="fas fa-chevron-down text-0.8em transition-transform duration-250"
+            :style="{ transform: showMenu ? 'rotate(-180deg)' : '' }"
+          ></i>
         </button>
+        
+        <!-- 下拉菜单 -->
         <div 
-          v-if="showMenu"
-          class="absolute top-full right-0 mt-2 w-48 bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-xl shadow-2xl border border-teal-400/30 py-2 z-50"
+          v-show="showMenu"
+          class="absolute top-[calc(100%+10px)] left-0 right-0 rounded-3 border min-w-full max-h-80 overflow-y-auto z-[100000] transition-all duration-180"
+          :class="[
+            store.isDark ? 'bg-[#2c2c2c]/95 border-white/15' : 'bg-white/95 border-black/10'
+          ]"
+          style="box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18); backdrop-filter: blur(12px);"
         >
-          <button
-            v-for="source in sources"
+          <div 
+            v-for="source in sources" 
             :key="source.value"
             @click="selectSource(source.value)"
-            class="w-full px-4 py-2.5 text-left text-sm hover:bg-teal-500 hover:text-white transition"
-            :class="{ 'bg-teal-500 text-white': store.searchSource === source.value }"
+            class="flex items-center justify-between gap-3 px-4 py-3 text-0.95em cursor-pointer transition-all duration-200"
+            :class="[
+              store.searchSource === source.value 
+                ? 'bg-[#1abc9c] text-white' 
+                : store.isDark 
+                  ? 'text-[#ecf0f1] hover:bg-[#1abc9c] hover:text-white' 
+                  : 'text-[#2c3e50] hover:bg-[#1abc9c] hover:text-white'
+            ]"
           >
-            {{ source.label }}
-          </button>
+            <span>{{ source.label }}</span>
+            <i v-if="store.searchSource === source.value" class="fas fa-check text-0.85em"></i>
+          </div>
         </div>
       </div>
+      
       <button 
-        @click="handleSearch"
+        @click="handleSearch" 
+        class="bg-[#1abc9c] text-white border-none rounded-3 px-5 py-3 cursor-pointer text-base transition-all duration-200 flex items-center gap-2 hover:bg-[#12836d]"
         :disabled="store.isSearching || !searchQuery.trim()"
-        class="px-6 py-3 rounded-xl bg-teal-500 hover:bg-teal-600 disabled:bg-gray-400 text-white font-600 flex items-center gap-2 shadow-lg transition"
+        :class="store.isSearching || !searchQuery.trim() ? 'bg-[#7f8c8d] cursor-not-allowed' : ''"
       >
-        <i :class="store.isSearching ? 'i-carbon-circle-dash animate-spin' : 'i-carbon-search'"></i>
+        <i :class="store.isSearching ? 'fas fa-spinner fa-spin' : 'fas fa-search'"></i>
         <span>搜索</span>
       </button>
     </div>
 
     <!-- 搜索结果 -->
     <div 
-      v-if="store.searchResults.length > 0"
-      class="bg-white/50 dark:bg-gray-800/50 backdrop-blur-md rounded-xl p-4 max-h-60 overflow-y-auto border border-gray-300/30 dark:border-gray-600/30"
+      v-if="store.searchResults.length > 0" 
+      class="flex-1 overflow-y-auto overflow-x-hidden border-t -mx-5 px-5 -mb-5 pt-3.75"
+      :class="store.isDark ? 'border-white/15' : 'border-black/10'"
+      style="border-radius: 0 0 14px 14px;"
     >
-      <div class="flex justify-between items-center mb-3">
-        <span class="text-sm font-600">搜索结果 ({{ store.searchResults.length }})</span>
-        <button 
-          @click="store.searchResults = []"
-          class="w-8 h-8 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center justify-center transition"
-        >
-          <i class="i-carbon-close"></i>
-        </button>
-      </div>
       <div class="flex flex-col gap-2">
         <div 
-          v-for="song in store.searchResults"
-          :key="song.id"
-          @dblclick="playSong(song)"
-          class="flex items-center gap-3 p-2 rounded-lg hover:bg-teal-50 dark:hover:bg-teal-900/20 cursor-pointer group transition"
+          v-for="(song, index) in store.searchResults" 
+          :key="index"
+          @click="playSong(song)"
+          class="flex justify-between items-center px-4 py-3 rounded-3 cursor-pointer transition-all duration-300 mb-2 gap-3.5 border"
+          :class="[
+            store.isDark 
+              ? 'bg-[#2c2c2c]/30 border-[#1abc9c]/20 hover:bg-[#1abc9c]/10' 
+              : 'bg-white/30 border-white/20 hover:bg-[#1abc9c]/10'
+          ]"
+          style="backdrop-filter: blur(10px);"
         >
-          <img :src="song.cover || placeholderImage" class="w-12 h-12 rounded object-cover" @error="(e: any) => e.target.src = placeholderImage" />
           <div class="flex-1 min-w-0">
-            <div class="font-500 truncate text-sm">{{ song.name }}</div>
-            <div class="text-xs text-gray-500 truncate">{{ song.artist }}</div>
+            <div 
+              class="font-semibold text-[15px] mb-1 whitespace-nowrap overflow-hidden text-ellipsis"
+              :class="store.isDark ? 'text-[#ecf0f1]' : 'text-[#2c3e50]'"
+            >
+              {{ song.name }}
+            </div>
+            <div 
+              class="text-[13px] whitespace-nowrap overflow-hidden text-ellipsis"
+              :class="store.isDark ? 'text-[#95a5a6]' : 'text-[#7f8c8d]'"
+            >
+              {{ song.artist }}
+            </div>
           </div>
-          <button @click.stop="store.addToPlaylist(song)" class="w-9 h-9 rounded-lg hover:bg-teal-100 dark:hover:bg-teal-800 flex items-center justify-center opacity-0 group-hover:opacity-100 transition" title="添加"><i class="i-carbon-add text-lg"></i></button>
-          <button @click.stop="store.toggleFavorite(song)" class="w-9 h-9 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition" title="收藏"><i :class="store.isFavorite(song) ? 'i-carbon-favorite-filled text-red-500' : 'i-carbon-favorite'" class="text-lg"></i></button>
+          <div class="flex gap-2 ml-3.75">
+            <button 
+              @click.stop="playSong(song)"
+              class="w-8 h-8 p-0 rounded-2 border border-[#1abc9c]/45 flex justify-center items-center text-[14px] transition-all duration-200 bg-[#1abc9c] text-white hover:bg-[#12836d]"
+              style="box-shadow: 0 6px 16px rgba(26, 188, 156, 0.3);"
+            >
+              <i class="fas fa-play"></i>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -77,20 +125,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useAppStore } from '../store'
-import type { Song, MusicSource } from '../types'
+import type { MusicSource } from '../types'
 
 const store = useAppStore()
 const searchQuery = ref('')
 const showMenu = ref(false)
-const placeholderImage = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%23ddd" width="100" height="100"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23999"%3E%F0%9F%8E%B5%3C/text%3E%3C/svg%3E'
 
 const sources = [
   { value: 'netease' as MusicSource, label: '网易云音乐' },
-  { value: 'qq' as MusicSource, label: 'QQ音乐' },
-  { value: 'kugou' as MusicSource, label: '酷狗音乐' },
-  { value: 'kuwo' as MusicSource, label: '酷我音乐' }
+  { value: 'kuwo' as MusicSource, label: '酷我音乐' },
+  { value: 'joox' as MusicSource, label: 'JOOX音乐' }
 ]
 
 const sourceName = computed(() => sources.find(s => s.value === store.searchSource)?.label || '网易云音乐')
@@ -101,15 +147,29 @@ function selectSource(source: MusicSource) {
 }
 
 async function handleSearch() {
-  if (!searchQuery.value.trim()) return
+  if (!searchQuery.value.trim() || store.isSearching) return
   showMenu.value = false
   await store.search(searchQuery.value)
 }
 
-function playSong(song: Song) {
+function playSong(song: any) {
   store.addToPlaylist(song)
   const idx = store.playlist.findIndex(s => s.id === song.id && s.source === song.source)
   if (idx !== -1) store.playAtIndex(idx)
 }
-</script>
 
+function handleClickOutside(e: MouseEvent) {
+  const target = e.target as HTMLElement
+  if (showMenu.value && !target.closest('.relative')) {
+    showMenu.value = false
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', handleClickOutside)
+})
+</script>

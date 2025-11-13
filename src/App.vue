@@ -1,140 +1,209 @@
 <template>
-  <div 
-    class="min-h-screen flex items-center justify-center p-5"
-    :class="store.isDark ? 'bg-gray-950' : 'bg-gray-100'"
-  >
+  <div id="app" class="min-h-screen flex items-center justify-center p-5 m-0 box-border bg-[#0f0f0f] transition-colors duration-500" :class="store.isDark ? 'dark' : ''">
     <!-- 背景渐变层 -->
-    <div 
-      class="fixed inset-0 -z-10 transition-opacity duration-1000"
-      :style="{ backgroundImage: store.currentGradient }"
-    ></div>
+    <div class="fixed inset-0 pointer-events-none z-0">
+      <div 
+        class="absolute inset-0 transition-opacity duration-[850ms]" 
+        :style="{ 
+          background: store.currentGradient,
+          opacity: 1 
+        }"
+      ></div>
+    </div>
 
-    <!-- 主容器 - Grid 布局（完全按照 Solara） -->
+    <!-- 主容器 - 16:9 Grid 布局 -->
     <div 
-      class="w-full max-w-7xl h-[90vh] rounded-3xl shadow-2xl overflow-hidden grid"
-      style="grid-template-areas: 'header header' 'search search' 'cover playlist' 'controls controls'; grid-template-columns: 1fr 1fr; grid-template-rows: auto auto 1fr auto;"
-      :class="store.isDark ? 'bg-gray-900/60 backdrop-blur-xl' : 'bg-white/60 backdrop-blur-xl'"
+      id="mainContainer"
+      class="relative z-1 w-full mx-auto rounded-6 p-7.5 aspect-[16/9] h-[80vh] max-h-[700px] grid gap-5 transition-all duration-500 border shadow-[0_20px_60px_rgba(0,0,0,0.1)]"
+      :class="[
+        store.isDark ? 'bg-[#1e1e1e]/60 border-white/15' : 'bg-white/60 border-black/10'
+      ]"
+      :style="{
+        maxWidth: 'min(1200px, 100%)',
+        gridTemplateAreas: `
+          'header header header'
+          'search search search'
+          'cover playlist lyrics'
+          'controls controls controls'
+        `,
+        gridTemplateRows: 'auto auto 1fr 80px',
+        gridTemplateColumns: '300px 1fr 1fr',
+        backdropFilter: 'blur(10px)'
+      }"
     >
       <!-- Header -->
-      <div class="px-8 py-6 flex justify-between items-start border-b border-gray-300/30 dark:border-gray-600/30" style="grid-area: header;">
-        <div>
-          <h1 class="text-4xl font-800 mb-2 bg-gradient-to-r from-teal-400 to-emerald-500 bg-clip-text text-transparent">
-            Simple Music
-          </h1>
-          <div class="text-sm text-gray-600 dark:text-gray-400">
-            Made with ❤️ | 仅供学习交流使用
-          </div>
+      <div class="text-center relative" style="grid-area: header;">
+        <h1 class="m-0 text-4xl font-bold text-[#1abc9c] tracking-wide">Simple Music</h1>
+        <div class="text-0.9em mt-2.5 italic" :class="store.isDark ? 'text-[#95a5a6]' : 'text-[#7f8c8d]'">
+          Made by oliver-xie666，仅供学习交流使用，请支持正版音乐！
         </div>
-        <button 
-          @click="store.toggleTheme()"
-          class="w-12 h-12 rounded-full bg-white/50 dark:bg-gray-700/50 backdrop-blur flex items-center justify-center hover:scale-110 transition shadow-lg"
-        >
-          <i v-if="!store.isDark" class="i-carbon-sun text-2xl text-yellow-500"></i>
-          <i v-else class="i-carbon-moon text-2xl text-blue-400"></i>
-        </button>
+        <div class="absolute top-0 right-0">
+          <button 
+            @click="store.toggleTheme" 
+            class="w-11 h-11 rounded-4 border flex items-center justify-center cursor-pointer transition-all duration-300 relative overflow-hidden"
+            :class="[
+              store.isDark ? 'bg-[#242a36]/90 border-[#1abc9c]/45' : 'bg-white/85 border-black/10',
+            ]"
+            style="backdrop-filter: blur(12px); box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);"
+          >
+            <i 
+              class="fas fa-sun absolute text-lg text-[#f5a623] transition-all duration-350"
+              :style="!store.isDark ? 'opacity: 1; transform: scale(1) rotate(0deg)' : 'opacity: 0; transform: scale(0.6) rotate(-20deg)'"
+            ></i>
+            <i 
+              class="fas fa-moon absolute text-lg text-[#a29bfe] transition-all duration-350"
+              :style="store.isDark ? 'opacity: 1; transform: scale(1) rotate(0deg)' : 'opacity: 0; transform: scale(0.6) rotate(20deg)'"
+            ></i>
+          </button>
+        </div>
       </div>
 
       <!-- Search Area -->
       <SearchArea />
 
-      <!-- Cover Area (左侧) -->
+      <!-- Cover Area -->
       <CoverArea />
 
-      <!-- Playlist Area (右侧) -->
+      <!-- Playlist Area -->
       <PlaylistArea />
 
-      <!-- Controls (底部) -->
+      <!-- Lyrics Area -->
+      <LyricsArea />
+
+      <!-- Player Controls -->
       <PlayerControls />
     </div>
 
     <!-- Audio Element -->
     <audio 
-      ref="audioRef"
-      @loadedmetadata="onLoadedMetadata"
+      ref="audioRef" 
       @timeupdate="onTimeUpdate"
-      @ended="store.playNext()"
+      @loadedmetadata="onLoadedMetadata"
+      @ended="onEnded"
       @canplay="onCanPlay"
       @error="onError"
+      class="hidden"
     ></audio>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue'
+import { ref, watch } from 'vue'
 import { useAppStore } from './store'
 import SearchArea from './components/SearchArea.vue'
 import CoverArea from './components/CoverArea.vue'
 import PlaylistArea from './components/PlaylistArea.vue'
+import LyricsArea from './components/LyricsArea.vue'
 import PlayerControls from './components/PlayerControls.vue'
 
 const store = useAppStore()
-const audioRef = ref<HTMLAudioElement>()
+const audioRef = ref<HTMLAudioElement | null>(null)
 
-watch(() => store.currentSong, async (song) => {
-  if (!song || !audioRef.value) return
-  store.setLoading(true)
-  try {
-    const response = await window.electronAPI.fetchMusicUrl({
-      id: song.url_id || song.id,
-      source: song.source,
-      quality: store.quality
+// 监听播放状态
+watch(() => store.isPlaying, (playing: boolean) => {
+  if (!audioRef.value) return
+  if (playing) {
+    audioRef.value.play().catch((err: any) => {
+      console.error('播放失败:', err)
+      store.pause()
     })
-    if (response && response.success && response.data && response.data.url) {
-      audioRef.value.src = response.data.url
-      audioRef.value.load()
-      store.loadLyrics(song.lyric_id || song.id, song.source)
-    }
-  } catch (error) {
-    console.error('加载失败:', error)
-    store.setLoading(false)
+  } else {
+    audioRef.value.pause()
   }
 })
 
-watch(() => store.isPlaying, (playing) => {
-  if (!audioRef.value) return
-  if (playing) audioRef.value.play().catch(() => store.pause())
-  else audioRef.value.pause()
+// 监听当前歌曲变化
+watch(() => store.currentSong, (song: any) => {
+  if (!audioRef.value || !song) return
+  audioRef.value.src = song.url
+  audioRef.value.load()
+  if (store.isPlaying) {
+    audioRef.value.play().catch((err: any) => {
+      console.error('播放失败:', err)
+      store.pause()
+    })
+  }
 })
 
-watch(() => store.volume, (v) => { if (audioRef.value) audioRef.value.volume = v })
-
-function onLoadedMetadata() { if (audioRef.value) store.setDuration(audioRef.value.duration) }
-function onTimeUpdate() { 
+// 监听音量变化
+watch(() => store.volume, (vol: number) => {
   if (audioRef.value) {
-    store.setCurrentTime(audioRef.value.currentTime)
-    store.updateCurrentLyricLine(audioRef.value.currentTime)
+    audioRef.value.volume = vol
+  }
+})
+
+// 监听进度搜索
+window.addEventListener('seek-audio', ((e: CustomEvent) => {
+  if (audioRef.value && store.duration) {
+    audioRef.value.currentTime = e.detail * store.duration
+  }
+}) as EventListener)
+
+function onTimeUpdate() {
+  if (audioRef.value) {
+    store.currentTime = audioRef.value.currentTime
+    store.updateLyricIndex()
   }
 }
-function onCanPlay() { store.setLoading(false); if (store.isPlaying) audioRef.value?.play() }
-function onError() { store.setLoading(false); store.pause() }
 
-onMounted(() => {
-  store.loadFromStorage()
-  if (audioRef.value) audioRef.value.volume = store.volume
-  
-  window.addEventListener('seek-audio', (e: Event) => {
-    const customEvent = e as CustomEvent
-    if (audioRef.value && customEvent.detail !== undefined) {
-      audioRef.value.currentTime = customEvent.detail * audioRef.value.duration
-    }
-  })
-  
-  if ('mediaSession' in navigator) {
-    navigator.mediaSession.setActionHandler('play', () => store.play())
-    navigator.mediaSession.setActionHandler('pause', () => store.pause())
-    navigator.mediaSession.setActionHandler('previoustrack', () => store.playPrevious())
-    navigator.mediaSession.setActionHandler('nexttrack', () => store.playNext())
+function onLoadedMetadata() {
+  if (audioRef.value) {
+    store.duration = audioRef.value.duration
   }
-})
+}
 
-watch(() => store.currentSong, (song) => {
-  if (song && 'mediaSession' in navigator) {
-    navigator.mediaSession.metadata = new MediaMetadata({
-      title: song.name,
-      artist: song.artist,
-      album: song.album,
-      artwork: [{ src: song.cover, sizes: '512x512', type: 'image/jpeg' }]
-    })
-  }
-})
+function onEnded() {
+  store.playNext()
+}
+
+function onCanPlay() {
+  store.isLoading = false
+}
+
+function onError() {
+  store.isLoading = false
+  store.pause()
+  store.showNotification('播放失败，请尝试其他音质', 'error')
+}
+
+// 初始化
+store.loadFromStorage()
+if (audioRef.value) {
+  audioRef.value.volume = store.volume
+}
 </script>
+
+<style>
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #1abc9c;
+}
+</style>
+

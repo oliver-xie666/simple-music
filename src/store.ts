@@ -18,9 +18,6 @@ export const useAppStore = defineStore('app', () => {
   const playlist = ref<Song[]>([])
   const currentIndex = ref(-1)
 
-  // ========== 收藏列表 ==========
-  const favorites = ref<Song[]>([])
-
   // ========== 搜索 ==========
   const searchQuery = ref('')
   const searchResults = ref<Song[]>([])
@@ -34,6 +31,16 @@ export const useAppStore = defineStore('app', () => {
   // ========== 主题 ==========
   const isDark = ref(false)
   const currentGradient = ref('linear-gradient(140deg, #e0f5e9 0%, #c6f0e0 35%, #a3e4d7 100%)')
+
+  // ========== 通知系统 ==========
+  const notification = ref({ message: '', type: 'info' as 'success' | 'error' | 'warning' | 'info', show: false })
+  
+  function showNotification(message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') {
+    notification.value = { message, type, show: true }
+    setTimeout(() => {
+      notification.value.show = false
+    }, 3000)
+  }
 
   // ========== 计算属性 ==========
   const progress = computed(() => duration.value ? (currentTime.value / duration.value) * 100 : 0)
@@ -50,6 +57,13 @@ export const useAppStore = defineStore('app', () => {
       currentIndex.value = index
       currentSong.value = playlist.value[index]
       play()
+      
+      // 加载歌词
+      if (currentSong.value.lrc) {
+        loadLyrics(currentSong.value.lrc)
+      } else {
+        lyrics.value = []
+      }
     }
   }
 
@@ -110,20 +124,6 @@ export const useAppStore = defineStore('app', () => {
     saveToStorage()
   }
 
-  // ========== 收藏管理 ==========
-  function isFavorite(song: Song) {
-    return favorites.value.some(s => s.id === song.id && s.source === song.source)
-  }
-
-  function toggleFavorite(song: Song) {
-    if (isFavorite(song)) {
-      favorites.value = favorites.value.filter(s => !(s.id === song.id && s.source === song.source))
-    } else {
-      favorites.value.unshift(song)
-    }
-    saveToStorage()
-  }
-
   // ========== 搜索 ==========
   async function search(keyword: string) {
     if (!keyword.trim()) return
@@ -131,66 +131,54 @@ export const useAppStore = defineStore('app', () => {
     isSearching.value = true
     
     try {
-      console.log('开始搜索:', keyword, searchSource.value)
-      const response = await window.electronAPI.searchMusic({
-        keyword,
-        source: searchSource.value,
-        page: 1
-      })
+      // 使用 GD 音乐台 API
+      const url = `https://music.gdstudio.xyz/api.php?source=${searchSource.value}&types=search&name=${encodeURIComponent(keyword)}&count=20&pages=1`
+      const response = await fetch(url)
+      const data = await response.json()
       
-      console.log('搜索响应:', response)
-      
-      if (response && response.success && response.data) {
-        // Solara API 返回的是数组格式
-        const songs = Array.isArray(response.data) ? response.data : []
-        searchResults.value = songs.map((item: any) => ({
-          id: String(item.id),
-          name: item.name || '未知歌曲',
-          artist: item.artist || '未知艺术家',
+      if (data && Array.isArray(data)) {
+        searchResults.value = data.map((item: any) => ({
+          id: String(item.id || Math.random()),
+          name: item.name || item.title || '未知歌曲',
+          artist: item.artist || item.author || '未知艺术家',
           album: item.album || '未知专辑',
-          cover: '', // 稍后通过 getPicUrl 获取
-          pic_id: item.pic_id,
-          url_id: item.url_id || item.id,
-          lyric_id: item.lyric_id || item.id,
+          cover: item.pic || '',
+          url: item.url || '',
+          lrc: item.lrc || '',
           duration: 0,
-          source: item.source || searchSource.value
+          source: searchSource.value
         }))
-        
-        console.log('解析后的歌曲:', searchResults.value)
-        
-        // 获取封面
-        for (const song of searchResults.value) {
-          if (song.pic_id) {
-            const picResponse = await window.electronAPI.getPicUrl({ picId: song.pic_id, source: song.source })
-            if (picResponse && picResponse.success) {
-              song.cover = picResponse.url
-            }
-          }
-        }
       }
     } catch (error) {
       console.error('搜索失败:', error)
+      showNotification('搜索失败', 'error')
     } finally {
       isSearching.value = false
     }
   }
 
   // ========== 歌词 ==========
-  async function loadLyrics(songId: string, source: string) {
+  async function loadLyrics(lrcUrl: string) {
     try {
-      const response = await window.electronAPI.fetchLyrics({ id: songId, source })
-      if (response && response.success && response.data) {
-        const lyricText = response.data.lyric || response.data.lrc?.lyric || ''
-        lyrics.value = parseLrc(lyricText)
+      if (!lrcUrl) {
+        lyrics.value = []
+        return
       }
+      
+      const response = await fetch(lrcUrl)
+      const text = await response.text()
+      lyrics.value = parseLrc(text)
     } catch (error) {
+      console.error('加载歌词失败:', error)
       lyrics.value = []
     }
   }
 
-  function updateCurrentLyricLine(time: number) {
+  function updateLyricIndex() {
+    if (lyrics.value.length === 0) return
+    
     for (let i = lyrics.value.length - 1; i >= 0; i--) {
-      if (time >= lyrics.value[i].time) {
+      if (currentTime.value >= lyrics.value[i].time) {
         currentLyricLine.value = i
         return
       }
@@ -202,55 +190,47 @@ export const useAppStore = defineStore('app', () => {
   function toggleTheme() {
     isDark.value = !isDark.value
     if (isDark.value) {
-      document.body.classList.add('dark-mode')
       currentGradient.value = 'linear-gradient(135deg, #0b1d1b 0%, #0f2f2c 45%, #123c36 100%)'
     } else {
-      document.body.classList.remove('dark-mode')
       currentGradient.value = 'linear-gradient(140deg, #e0f5e9 0%, #c6f0e0 35%, #a3e4d7 100%)'
     }
     saveToStorage()
   }
 
-  async function extractColors(coverUrl: string) {
-    try {
-      const response = await window.electronAPI.extractPalette(coverUrl)
-      if (response && response.success && response.data) {
-        const palette = response.data
-        currentGradient.value = isDark.value ? palette.gradients.dark.gradient : palette.gradients.light.gradient
-      }
-    } catch (error) {
-      console.error('提取颜色失败:', error)
-    }
+  // ========== 批量操作 ==========
+  function addAllToPlaylist(songs: Song[]) {
+    songs.forEach(song => addToPlaylist(song))
   }
 
   // ========== 本地存储 ==========
-  async function saveToStorage() {
-    await window.electronAPI.saveData('app-state', {
-      playlist: playlist.value,
-      currentIndex: currentIndex.value,
-      favorites: favorites.value,
-      volume: volume.value,
-      playMode: playMode.value,
-      quality: quality.value,
-      isDark: isDark.value
-    })
+  function saveToStorage() {
+    try {
+      localStorage.setItem('simple-music-state', JSON.stringify({
+        playlist: playlist.value,
+        currentIndex: currentIndex.value,
+        volume: volume.value,
+        playMode: playMode.value,
+        quality: quality.value,
+        isDark: isDark.value
+      }))
+    } catch (error) {
+      console.error('保存数据失败:', error)
+    }
   }
 
-  async function loadFromStorage() {
+  function loadFromStorage() {
     try {
-      const response = await window.electronAPI.loadData('app-state')
-      if (response && response.success && response.data) {
-        const data = response.data
+      const saved = localStorage.getItem('simple-music-state')
+      if (saved) {
+        const data = JSON.parse(saved)
         playlist.value = data.playlist || []
         currentIndex.value = data.currentIndex ?? -1
-        favorites.value = data.favorites || []
         volume.value = data.volume ?? 0.8
         playMode.value = data.playMode || 'list-loop'
         quality.value = data.quality || '320'
         isDark.value = data.isDark ?? false
         
         if (isDark.value) {
-          document.body.classList.add('dark-mode')
           currentGradient.value = 'linear-gradient(135deg, #0b1d1b 0%, #0f2f2c 45%, #123c36 100%)'
         }
         
@@ -266,15 +246,16 @@ export const useAppStore = defineStore('app', () => {
   return {
     // 状态
     currentSong, isPlaying, currentTime, duration, volume, playMode, quality, isLoading,
-    playlist, currentIndex, favorites, searchQuery, searchResults, searchSource, isSearching,
-    lyrics, currentLyricLine, isDark, currentGradient,
+    playlist, currentIndex, searchQuery, searchResults, searchSource, isSearching,
+    lyrics, currentLyricLine, isDark, currentGradient, notification,
     // 计算属性
     progress, formattedCurrentTime, formattedDuration,
     // 方法
     play, pause, togglePlay, playAtIndex, playNext, playPrevious,
     addToPlaylist, removeFromPlaylist, clearPlaylist,
-    isFavorite, toggleFavorite, search, loadLyrics, updateCurrentLyricLine,
-    toggleTheme, extractColors, saveToStorage, loadFromStorage,
+    search, loadLyrics, updateLyricIndex,
+    toggleTheme, saveToStorage, loadFromStorage,
+    addAllToPlaylist, showNotification,
     setCurrentTime: (time: number) => currentTime.value = time,
     setDuration: (d: number) => duration.value = d,
     setVolume: (v: number) => volume.value = v,

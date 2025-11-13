@@ -2,6 +2,12 @@ import { ipcMain, dialog } from 'electron'
 import { searchMusic, getSongUrl, getLyric, getPicUrl } from './api'
 import { extractPaletteFromImage } from './palette'
 import { saveToStore, loadFromStore, removeFromStore } from './storage'
+import axios from 'axios'
+import { createWriteStream } from 'fs'
+import { promisify } from 'util'
+import { pipeline } from 'stream'
+
+const streamPipeline = promisify(pipeline)
 
 export function setupIpcHandlers() {
   // 搜索音乐
@@ -56,17 +62,39 @@ export function setupIpcHandlers() {
   // 下载音乐
   ipcMain.handle('download-music', async (_event, params) => {
     try {
-      const { url, filename } = params
+      const { id, source, quality, filename } = params
+      console.log('IPC 下载:', { id, source, quality, filename })
+      
+      // 获取音乐URL
+      const urlResult = await getSongUrl(id, source, quality)
+      if (!urlResult || !urlResult.url) {
+        throw new Error('无法获取下载链接')
+      }
+      
+      const musicUrl = urlResult.url
+      
+      // 显示保存对话框
+      const ext = quality === 'flac' ? 'flac' : 'mp3'
       const { filePath, canceled } = await dialog.showSaveDialog({
         title: '保存音乐',
-        defaultPath: filename,
-        filters: [{ name: 'Audio Files', extensions: ['mp3', 'flac', 'm4a'] }]
+        defaultPath: `${filename}.${ext}`,
+        filters: [{ name: 'Audio Files', extensions: [ext] }]
       })
       
       if (canceled || !filePath) {
         return { success: false, canceled: true }
       }
 
+      // 下载文件
+      const response = await axios({
+        method: 'get',
+        url: musicUrl,
+        responseType: 'stream',
+        timeout: 60000
+      })
+
+      await streamPipeline(response.data, createWriteStream(filePath))
+      
       return { success: true, path: filePath }
     } catch (error: any) {
       console.error('IPC 下载失败:', error)
@@ -109,6 +137,54 @@ export function setupIpcHandlers() {
       await removeFromStore(key)
       return { success: true }
     } catch (error: any) {
+      return { success: false, error: error.message }
+    }
+  })
+
+  // 导入播放列表/收藏列表
+  ipcMain.handle('import-json', async (_event) => {
+    try {
+      const { filePaths, canceled } = await dialog.showOpenDialog({
+        title: '导入列表',
+        filters: [{ name: 'JSON Files', extensions: ['json'] }],
+        properties: ['openFile']
+      })
+      
+      if (canceled || filePaths.length === 0) {
+        return { success: false, canceled: true }
+      }
+      
+      const fs = require('fs').promises
+      const content = await fs.readFile(filePaths[0], 'utf-8')
+      const data = JSON.parse(content)
+      
+      return { success: true, data }
+    } catch (error: any) {
+      console.error('IPC 导入失败:', error)
+      return { success: false, error: error.message }
+    }
+  })
+  
+  // 导出播放列表/收藏列表
+  ipcMain.handle('export-json', async (_event, params) => {
+    try {
+      const { data, defaultName } = params
+      const { filePath, canceled } = await dialog.showSaveDialog({
+        title: '导出列表',
+        defaultPath: defaultName || 'playlist.json',
+        filters: [{ name: 'JSON Files', extensions: ['json'] }]
+      })
+      
+      if (canceled || !filePath) {
+        return { success: false, canceled: true }
+      }
+      
+      const fs = require('fs').promises
+      await fs.writeFile(filePath, JSON.stringify(data, null, 2), 'utf-8')
+      
+      return { success: true, path: filePath }
+    } catch (error: any) {
+      console.error('IPC 导出失败:', error)
       return { success: false, error: error.message }
     }
   })
