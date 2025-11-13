@@ -66,9 +66,9 @@
       
       <button 
         @click="handleSearch" 
-        class="bg-[#1abc9c] text-white border-none rounded-3 px-5 py-3 cursor-pointer text-base transition-all duration-200 flex items-center gap-2 hover:bg-[#12836d]"
+        class="text-white border-none rounded-3 px-5 py-3 cursor-pointer text-base transition-all duration-200 flex items-center gap-2"
         :disabled="store.isSearching || !searchQuery.trim()"
-        :class="store.isSearching || !searchQuery.trim() ? 'bg-[#7f8c8d] cursor-not-allowed' : ''"
+        :class="(store.isSearching || !searchQuery.trim()) ? 'bg-[#7f8c8d] cursor-not-allowed' : 'bg-[#1abc9c] hover:bg-[#12836d]'"
       >
         <i :class="store.isSearching ? 'fas fa-spinner fa-spin' : 'fas fa-search'"></i>
         <span>搜索</span>

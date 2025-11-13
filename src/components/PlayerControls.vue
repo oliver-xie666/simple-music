@@ -32,8 +32,8 @@
         style="font-size: 1.4em; box-shadow: 0 4px 10px rgba(0,0,0,0.1);"
         :disabled="!store.currentSong && store.playlist.length === 0"
       >
-        <i v-if="store.isLoading" class="fas fa-spinner fa-spin"></i>
-        <i v-else :class="store.isPlaying ? 'fas fa-pause' : 'fas fa-play'"></i>
+        <i v-if="store.isLoading" class="fas fa-spinner fa-spin" style="margin: 0;"></i>
+        <i v-else :class="store.isPlaying ? 'fas fa-pause' : 'fas fa-play'" :style="{ marginLeft: store.isPlaying ? '0' : '2px' }"></i>
       </button>
 
       <!-- 下一曲 -->
@@ -62,9 +62,9 @@
         @input="seekAudio"
         :max="store.duration || 0"
         step="0.1"
-        class="flex-1 h-2 rounded-full cursor-pointer transition-all duration-200 appearance-none bg-transparent"
+        class="flex-1 h-2 rounded-full cursor-pointer transition-all duration-200"
         :style="{
-          background: `linear-gradient(to right, #1abc9c 0%, #1abc9c ${store.progress}%, rgba(255, 255, 255, 0.5) ${store.progress}%, rgba(255, 255, 255, 0.2) 100%)`
+          background: `linear-gradient(to right, #1abc9c 0%, #1abc9c ${store.progress}%, rgba(255, 255, 255, 0.3) ${store.progress}%, rgba(255, 255, 255, 0.15) 100%)`
         }"
       />
       <span 
@@ -77,10 +77,10 @@
     </div>
 
     <!-- 右侧：音质、音量、探索雷达 -->
-    <div class="flex items-center justify-between gap-5 w-full flex-wrap" style="grid-area: trailing;">
-      <div class="flex items-center gap-4 flex-wrap justify-start flex-1">
+    <div class="flex items-center justify-between gap-5 w-full" style="grid-area: trailing;">
+      <div class="flex items-center gap-4 justify-start flex-1">
         <!-- 音质选择 -->
-        <div class="relative">
+        <div class="relative flex-shrink-0">
           <button 
             @click="showQualityMenu = !showQualityMenu"
             class="flex items-center justify-center gap-0 px-4 py-2.5 rounded-2 border font-medium cursor-pointer transition-all duration-200"
@@ -118,12 +118,12 @@
         </div>
 
         <!-- 音量控制 -->
-        <div class="flex items-center gap-2 min-w-[140px]">
+        <div class="flex items-center gap-2 min-w-[140px] flex-shrink-0">
           <i 
             :class="volumeIcon" 
             :style="{ color: store.isDark ? '#ecf0f1' : '#2c3e50' }"
             @click="toggleMute"
-            class="cursor-pointer"
+            class="cursor-pointer text-lg"
           ></i>
           <input 
             type="range" 
@@ -132,9 +132,9 @@
             min="0" 
             max="100" 
             step="1"
-            class="w-[110px] h-1.5 rounded-full cursor-pointer appearance-none bg-transparent"
+            class="w-[110px] h-1.5 rounded-full cursor-pointer"
             :style="{
-              background: `linear-gradient(to right, #1abc9c 0%, #1abc9c ${store.volume * 100}%, rgba(255, 255, 255, 0.2) ${store.volume * 100}%, rgba(255, 255, 255, 0.1) 100%)`
+              background: `linear-gradient(to right, #1abc9c 0%, #1abc9c ${store.volume * 100}%, rgba(255, 255, 255, 0.3) ${store.volume * 100}%, rgba(255, 255, 255, 0.15) 100%)`
             }"
           />
         </div>
@@ -143,7 +143,7 @@
       <!-- 探索雷达 -->
       <button 
         @click="handleExploreRadar" 
-        class="bg-[#1abc9c] text-white border-none rounded-full cursor-pointer flex justify-center items-center transition-all duration-200 px-6.25 gap-2.5 h-12.5 hover:bg-[#12836d]"
+        class="bg-[#1abc9c] text-white border-none rounded-full cursor-pointer flex justify-center items-center transition-all duration-200 px-6.25 gap-2.5 h-12.5 hover:bg-[#12836d] flex-shrink-0"
         :disabled="isExploring"
         :class="isExploring ? 'bg-[#7f8c8d] cursor-not-allowed' : ''"
         style="width: auto; font-size: 1.2em; box-shadow: 0 4px 10px rgba(0,0,0,0.1);"
@@ -255,40 +255,3 @@ async function handleExploreRadar() {
   }
 }
 </script>
-
-<style scoped>
-/* Range Input 样式 */
-input[type="range"] {
-  -webkit-appearance: none;
-  appearance: none;
-}
-
-input[type="range"]::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: #1abc9c;
-  border: 2px solid rgba(255, 255, 255, 0.6);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-  transition: transform 0.2s ease;
-  cursor: pointer;
-}
-
-input[type="range"]::-moz-range-thumb {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: #1abc9c;
-  border: 2px solid rgba(255, 255, 255, 0.6);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-  transition: transform 0.2s ease;
-  cursor: pointer;
-}
-
-input[type="range"]:active::-webkit-slider-thumb,
-input[type="range"]:active::-moz-range-thumb {
-  transform: scale(1.1);
-}
-</style>
