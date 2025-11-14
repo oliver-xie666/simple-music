@@ -8,7 +8,7 @@
   >
     <!-- 封面唱片 -->
     <div 
-      class="w-[200px] h-[200px] min-h-[200px] flex-shrink-0 rounded-3 flex items-center justify-center mb-3.75 overflow-hidden relative"
+      class="w-[clamp(140px,40vw,200px)] h-[clamp(140px,40vw,200px)] min-h-[clamp(140px,40vw,200px)] flex-shrink-0 rounded-3 flex items-center justify-center mb-3.75 overflow-hidden relative"
       style="background: linear-gradient(45deg, #1abc9c, #2ecc71); box-shadow: 0 8px 20px rgba(0,0,0,0.15);"
       :style="{ animation: store.isPlaying ? 'spin 20s linear infinite' : 'none' }"
     >
@@ -24,6 +24,8 @@
         <i class="fas fa-music"></i>
       </div>
     </div>
+
+    
 
     <!-- 歌曲信息 -->
     <div class="w-full">

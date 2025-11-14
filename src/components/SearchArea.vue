@@ -12,7 +12,7 @@
         type="text" 
         v-model="searchQuery" 
         @keyup.enter="handleSearch"
-        class="flex-1 px-4 py-3 border-2 rounded-3 text-base outline-none transition-all duration-300"
+        class="flex-1 px-4 py-3 border-2 rounded-3 text-base outline-none transition-all duration-300 hover:border-primary focus:border-primary focus:shadow-[0_0_0_3px_rgba(26,188,156,0.25)]"
         :class="[
           store.isDark ? 'bg-[#2c2c2c]/50 text-[#ecf0f1] border-white/15' : 'bg-white/50 text-[#2c3e50] border-black/10'
         ]"
@@ -26,7 +26,7 @@
           class="flex items-center justify-between gap-2 px-4.5 py-3 border rounded-3 font-medium cursor-pointer transition-all duration-250 min-w-[150px]"
           :class="[
             showMenu ? 'border-[#1abc9c] text-[#1abc9c]' : '',
-            store.isDark ? 'bg-[#2c2c2c]/50 text-[#ecf0f1] border-white/15' : 'bg-white/50 text-[#2c3e50] border-black/10'
+            store.isDark ? 'bg-[#2c2c2c]/50 text-[#ecf0f1] border-white/15 hover:border-[#1abc9c] hover:text-[#1abc9c]' : 'bg-white/50 text-[#2c3e50] border-black/10 hover:border-[#1abc9c] hover:text-[#1abc9c]'
           ]"
         >
           <span>{{ sourceName }}</span>
@@ -68,7 +68,7 @@
         @click="handleSearch" 
         class="text-white border-none rounded-3 px-5 py-3 cursor-pointer text-base transition-all duration-200 flex items-center gap-2"
         :disabled="store.isSearching || !searchQuery.trim()"
-        :class="(store.isSearching || !searchQuery.trim()) ? 'bg-[#7f8c8d] cursor-not-allowed' : 'bg-[#1abc9c] hover:bg-[#12836d]'"
+        :class="store.isSearching ? 'bg-[#7f8c8d] cursor-not-allowed' : 'bg-[#1abc9c] hover:bg-[#12836d]'"
       >
         <i :class="store.isSearching ? 'fas fa-spinner fa-spin' : 'fas fa-search'"></i>
         <span>搜索</span>

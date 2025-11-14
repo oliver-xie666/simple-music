@@ -14,20 +14,24 @@
     <!-- 主容器 - 16:9 Grid 布局 -->
     <div 
       id="mainContainer"
-      class="relative z-1 w-full mx-auto rounded-6 p-7.5 aspect-[16/9] h-[80vh] max-h-[700px] grid gap-5 transition-all duration-500 border shadow-[0_20px_60px_rgba(0,0,0,0.1)]"
+      class="relative z-1 w-full mx-auto rounded-6 p-7.5 grid gap-5 transition-all duration-500 border shadow-[0_20px_60px_rgba(0,0,0,0.1)]"
       :class="[
         store.isDark ? 'bg-[#1e1e1e]/60 border-white/15' : 'bg-white/60 border-black/10'
       ]"
       :style="{
-        maxWidth: 'min(1200px, 100%)',
+        maxWidth: 'min(1400px, 100%)',
+        height: '85vh',
+        maxHeight: '900px',
         gridTemplateAreas: `
-          'header header header'
-          'search search search'
-          'cover playlist lyrics'
-          'controls controls controls'
+          'header'
+          'search'
+          'cover'
+          'playlist'
+          'lyrics'
+          'controls'
         `,
-        gridTemplateRows: 'auto auto 1fr 80px',
-        gridTemplateColumns: '300px 1fr 1fr',
+        gridTemplateRows: 'auto auto 1fr 1fr 1fr auto',
+        gridTemplateColumns: '1fr',
         backdropFilter: 'blur(10px)'
       }"
     >
@@ -72,6 +76,20 @@
 
       <!-- Player Controls -->
       <PlayerControls />
+    </div>
+
+    <!-- 通知 -->
+    <div 
+      v-if="store.notification.show"
+      class="fixed top-4 right-4 z-[100000] px-4 py-2 rounded-3 border shadow-[0_8px_20px_rgba(0,0,0,0.12)] transition-all duration-300"
+      :class="[
+        store.notification.type === 'success' ? 'bg-[#eafaf1] text-[#1e9f78] border-[#1abc9c]/30' : '',
+        store.notification.type === 'error' ? 'bg-[#fdecea] text-[#e74c3c] border-[#e74c3c]/30' : '',
+        store.notification.type === 'warning' ? 'bg-[#fff4e5] text-[#e67e22] border-[#e67e22]/30' : '',
+        store.notification.type === 'info' ? 'bg-[#e8f4fd] text-[#2980b9] border-[#2980b9]/30' : ''
+      ]"
+    >
+      {{ store.notification.message }}
     </div>
 
     <!-- Audio Element -->
@@ -174,6 +192,18 @@ if (audioRef.value) {
 </script>
 
 <style>
+@media (min-width: 900px) {
+  #mainContainer {
+    grid-template-areas: 
+      'header header header'
+      'search search search'
+      'cover playlist lyrics'
+      'controls controls controls' !important;
+    grid-template-rows: auto auto 1fr 80px !important;
+    grid-template-columns: 1fr 1fr 1fr !important;
+  }
+}
+
 @keyframes spin {
   from {
     transform: rotate(0deg);

@@ -1,6 +1,6 @@
 <template>
   <div 
-    class="rounded-4 p-5 border flex flex-col relative h-full overflow-hidden transition-all duration-500"
+    class="rounded-4 p-5 border flex flex-col relative h-full min-h-[220px] overflow-hidden transition-all duration-500"
     style="grid-area: playlist; background: rgba(255, 255, 255, 0.5); backdrop-filter: blur(10px); padding-top: 72px;"
     :class="[
       store.isDark ? 'bg-[#2c2c2c]/50 border-white/15' : 'bg-white/50 border-black/10',
@@ -8,7 +8,10 @@
     ]"
   >
     <!-- 播放列表标题 -->
-    <div class="absolute top-4 left-5 right-3 flex items-center justify-between gap-4 pointer-events-none z-5">
+    <div class="absolute top-4 left-5 right-3 flex items-center justify-between gap-4 z-5"
+      :class="store.isDark ? 'bg-[#2c2c2c]/50' : 'bg-white/50'"
+      style="padding: 8px; border-radius: 12px; backdrop-filter: blur(10px);"
+    >
       <div class="flex items-center gap-2 flex-1 min-w-0 pointer-events-auto">
         <button 
           class="inline-flex items-center justify-center px-4 py-2 rounded-3 border bg-[#1abc9c] text-white text-[14px] font-medium cursor-pointer transition-all duration-200"
@@ -16,6 +19,11 @@
         >
           播放列表
         </button>
+      </div>
+      <div class="flex items-center gap-2 pointer-events-auto">
+        <button class="w-8 h-8 rounded-full flex items-center justify-center transition-colors duration-200" :class="store.isDark ? 'hover:bg-white/10' : 'hover:bg-black/10'"><i class="fas fa-upload"></i></button>
+        <button class="w-8 h-8 rounded-full flex items-center justify-center transition-colors duration-200" :class="store.isDark ? 'hover:bg-white/10' : 'hover:bg-black/10'"><i class="fas fa-download"></i></button>
+        <button class="w-8 h-8 rounded-full flex items-center justify-center transition-colors duration-200" :class="store.isDark ? 'hover:bg-white/10' : 'hover:bg-black/10'"><i class="fas fa-trash"></i></button>
       </div>
     </div>
 

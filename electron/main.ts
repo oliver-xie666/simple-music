@@ -12,10 +12,12 @@ const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL']
 
 function createWindow() {
   win = new BrowserWindow({
-    width: 1200,
-    height: 800,
+    width: 1400,
+    height: 900,
     minWidth: 900,
     minHeight: 600,
+    maxWidth: 1600,
+    maxHeight: 1000,
     title: 'Simple Music',
     frame: true,
     backgroundColor: '#1a1a1a',

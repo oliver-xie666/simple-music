@@ -1,7 +1,7 @@
 <template>
   <div 
     ref="lyricsContainer"
-    class="rounded-4 p-5 border flex flex-col h-full overflow-hidden transition-all duration-500"
+    class="rounded-4 p-5 border flex flex-col h-full min-h-[220px] overflow-hidden transition-all duration-500"
     style="grid-area: lyrics; background: rgba(255, 255, 255, 0.5); backdrop-filter: blur(10px);"
     :class="[
       store.isDark ? 'bg-[#2c2c2c]/50 border-white/15' : 'bg-white/50 border-black/10'
