@@ -5,7 +5,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // 音乐 API
   fetchMusicUrl: (params: any) => ipcRenderer.invoke('fetch-music-url', params),
-  searchMusic: (params: any) => ipcRenderer.invoke('search-music', params),
+  
   fetchLyrics: (params: any) => ipcRenderer.invoke('fetch-lyrics', params),
   downloadMusic: (params: any) => ipcRenderer.invoke('download-music', params),
   getPicUrl: (params: any) => ipcRenderer.invoke('get-pic-url', params),

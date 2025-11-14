@@ -1,5 +1,5 @@
 import { ipcMain, dialog } from 'electron'
-import { searchMusic, getSongUrl, getLyric, getPicUrl } from './api'
+import { getSongUrl, getLyric, getPicUrl } from './api'
 import { extractPaletteFromImage } from './palette'
 import { saveToStore, loadFromStore, removeFromStore } from './storage'
 import axios from 'axios'
@@ -10,19 +10,6 @@ import { pipeline } from 'stream'
 const streamPipeline = promisify(pipeline)
 
 export function setupIpcHandlers() {
-  // 搜索音乐
-  ipcMain.handle('search-music', async (_event, params) => {
-    try {
-      const { keyword, source = 'netease', page = 1 } = params
-      console.log('IPC 搜索:', { keyword, source, page })
-      const result = await searchMusic(keyword, source, page)
-      return { success: true, data: result }
-    } catch (error: any) {
-      console.error('IPC 搜索失败:', error)
-      return { success: false, error: error.message }
-    }
-  })
-
   // 获取音乐 URL
   ipcMain.handle('fetch-music-url', async (_event, params) => {
     try {

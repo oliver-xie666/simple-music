@@ -39,7 +39,13 @@ export default defineConfig({
     }
   },
   server: {
-    port: 5173
-  }
+    port: 5173,
+    proxy: {
+      '/proxy': {
+        target: 'https://music-api.gdstudio.xyz/',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/proxy/, '/api.php'),
+      },
+    },
+  },
 })
-

@@ -126,32 +126,37 @@ export const useAppStore = defineStore('app', () => {
 
   // ========== 搜索 ==========
   async function search(keyword: string) {
-    if (!keyword.trim()) return
+    if (!keyword.trim()) {
+      showNotification('请输入搜索关键字', 'error')
+      return
+    }
     searchQuery.value = keyword
     isSearching.value = true
     
     try {
-      // 使用 GD 音乐台 API
-      const url = `https://music.gdstudio.xyz/api.php?source=${searchSource.value}&types=search&name=${encodeURIComponent(keyword)}&count=20&pages=1`
-      const response = await fetch(url)
+      const signature = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
+      const url = `/proxy?types=search&source=${searchSource.value}&name=${encodeURIComponent(keyword)}&count=100&pages=1&s=${signature}`
+      const response = await fetch(url, { headers: { 'Accept': 'application/json' } })
       const data = await response.json()
       
-      if (data && Array.isArray(data)) {
+      if (Array.isArray(data)) {
         searchResults.value = data.map((item: any) => ({
-          id: String(item.id || Math.random()),
-          name: item.name || item.title || '未知歌曲',
-          artist: item.artist || item.author || '未知艺术家',
-          album: item.album || '未知专辑',
-          cover: item.pic || '',
-          url: item.url || '',
-          lrc: item.lrc || '',
+          id: String(item.id ?? item.url_id ?? Math.random()),
+          name: item.name ?? item.title ?? '未知歌曲',
+          artist: item.artist ?? item.author ?? '未知艺术家',
+          album: item.album ?? '未知专辑',
+          cover: item.pic ?? '',
+          url: item.url ?? '',
+          lrc: item.lrc ?? '',
           duration: 0,
-          source: searchSource.value
+          source: item.source ?? searchSource.value
         }))
+      } else {
+        showNotification('搜索结果格式错误', 'error')
       }
     } catch (error) {
       console.error('搜索失败:', error)
-      showNotification('搜索失败', 'error')
+      showNotification('搜索失败，请稍后重试', 'error')
     } finally {
       isSearching.value = false
     }

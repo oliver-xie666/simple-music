@@ -246,15 +246,39 @@ async function handleExploreRadar() {
   if (isExploring.value) return
   isExploring.value = true
   try {
-    const genres = ['流行', '摇滚', '民谣', '电子', '爵士', '说唱']
-    const genre = genres[Math.floor(Math.random() * genres.length)]
-    await store.search(genre)
-    
-    // 添加前10首到播放列表
-    const songs = store.searchResults.slice(0, 10)
+    const signature = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
+    const url = `/proxy?types=playlist&id=3778678&limit=50&offset=0&s=${signature}`
+    const response = await fetch(url, { headers: { 'Accept': 'application/json' } })
+    const data = await response.json()
+
+    const tracks = data && data.playlist && Array.isArray(data.playlist.tracks) ? data.playlist.tracks.slice(0, 50) : []
+    if (tracks.length === 0) {
+      store.showNotification('探索雷达：未找到歌曲', 'error')
+      return
+    }
+
+    const songs = tracks.map((t: any) => ({
+      id: String(t.id),
+      name: t.name,
+      artist: Array.isArray(t.ar) ? t.ar.map((a: any) => a.name).join(' / ') : '未知艺术家',
+      album: t.al?.name ?? '未知专辑',
+      cover: t.al?.picUrl ?? '',
+      url: '',
+      lrc: '',
+      duration: 0,
+      source: 'netease'
+    }))
+
+    const before = store.playlist.length
     songs.forEach(song => store.addToPlaylist(song))
-    
-    if (songs.length > 0 && !store.currentSong) {
+    const appended = store.playlist.length - before
+    if (appended > 0) {
+      store.showNotification(`探索雷达：新增${appended}首`, 'success')
+    } else {
+      store.showNotification('探索雷达：本次未找到新的歌曲，当前列表已包含这些曲目', 'info')
+    }
+
+    if (!store.currentSong && store.playlist.length > 0) {
       store.playAtIndex(0)
     }
   } finally {

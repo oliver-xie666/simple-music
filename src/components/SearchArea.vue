@@ -1,21 +1,14 @@
 <template>
   <div 
     id="searchArea"
-    class="rounded-4 p-5 border relative z-10 overflow-visible flex flex-col transition-all duration-500"
-    style="grid-area: search; background: rgba(255, 255, 255, 0.5); backdrop-filter: blur(10px);"
-    :class="[
-      store.isDark ? 'bg-[#2c2c2c]/50 border-white/15' : 'bg-white/50 border-black/10'
-    ]"
+    class="rounded-4 p-5 border relative z-10 overflow-visible flex flex-col transition-all duration-500 bg-white/50 border-black/10"
   >
     <div class="flex gap-2.5 items-center mb-3.75 flex-shrink-0">
       <input 
         type="text" 
         v-model="searchQuery" 
         @keyup.enter="handleSearch"
-        class="flex-1 px-4 py-3 border-2 rounded-3 text-base outline-none transition-all duration-300 hover:border-primary focus:border-primary focus:shadow-[0_0_0_3px_rgba(26,188,156,0.25)]"
-        :class="[
-          store.isDark ? 'bg-[#2c2c2c]/50 text-[#ecf0f1] border-white/15' : 'bg-white/50 text-[#2c3e50] border-black/10'
-        ]"
+        class="flex-1 px-4 py-3 border-2 rounded-3 text-base outline-none transition-all duration-300 hover:border-primary focus:border-primary focus:shadow-[0_0_0_3px_rgba(26,188,156,0.25)] bg-white/50 text-[#2c3e50] border-black/10"
         placeholder="搜索歌曲、歌手或专辑..."
       >
       
@@ -23,11 +16,7 @@
       <div class="relative flex-shrink-0">
         <button 
           @click="showMenu = !showMenu"
-          class="flex items-center justify-between gap-2 px-4.5 py-3 border rounded-3 font-medium cursor-pointer transition-all duration-250 min-w-[150px]"
-          :class="[
-            showMenu ? 'border-[#1abc9c] text-[#1abc9c]' : '',
-            store.isDark ? 'bg-[#2c2c2c]/50 text-[#ecf0f1] border-white/15 hover:border-[#1abc9c] hover:text-[#1abc9c]' : 'bg-white/50 text-[#2c3e50] border-black/10 hover:border-[#1abc9c] hover:text-[#1abc9c]'
-          ]"
+          class="flex items-center justify-between gap-2 px-4.5 py-3 border rounded-3 font-medium cursor-pointer transition-all duration-250 min-w-[150px] bg-white/50 text-[#2c3e50] border-black/10 hover:border-[#1abc9c] hover:text-[#1abc9c]"
         >
           <span>{{ sourceName }}</span>
           <i 
@@ -39,24 +28,13 @@
         <!-- 下拉菜单 -->
         <div 
           v-show="showMenu"
-          class="absolute top-[calc(100%+10px)] left-0 right-0 rounded-3 border min-w-full max-h-80 overflow-y-auto z-[100000] transition-all duration-180"
-          :class="[
-            store.isDark ? 'bg-[#2c2c2c]/95 border-white/15' : 'bg-white/95 border-black/10'
-          ]"
-          style="box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18); backdrop-filter: blur(12px);"
+          class="absolute top-[calc(100%+8px)] left-0 right-0 rounded-3 border min-w-full h-34 overflow-y-auto z-[100000] transition-all duration-180 shadow-[0_12px_30px_rgba(0,0,0,0.18)] bg-white border-black/10"
         >
           <div 
             v-for="source in sources" 
             :key="source.value"
             @click="selectSource(source.value)"
-            class="flex items-center justify-between gap-3 px-4 py-3 text-0.95em cursor-pointer transition-all duration-200"
-            :class="[
-              store.searchSource === source.value 
-                ? 'bg-[#1abc9c] text-white' 
-                : store.isDark 
-                  ? 'text-[#ecf0f1] hover:bg-[#1abc9c] hover:text-white' 
-                  : 'text-[#2c3e50] hover:bg-[#1abc9c] hover:text-white'
-            ]"
+            class="flex items-center justify-between gap-3 px-4 py-2.5 text-0.95em cursor-pointer transition-all duration-200 text-[#2c3e50] hover:bg-[#1abc9c] hover:text-white"
           >
             <span>{{ source.label }}</span>
             <i v-if="store.searchSource === source.value" class="fas fa-check text-0.85em"></i>
@@ -78,7 +56,7 @@
     <!-- 搜索结果 -->
     <div 
       v-if="store.searchResults.length > 0" 
-      class="flex-1 overflow-y-auto overflow-x-hidden border-t -mx-5 px-5 -mb-5 pt-3.75"
+      class="overflow-y-auto overflow-x-hidden border-t -mx-5 px-5 -mb-5 pt-3.75 h-96"
       :class="store.isDark ? 'border-white/15' : 'border-black/10'"
       style="border-radius: 0 0 14px 14px;"
     >
@@ -87,24 +65,17 @@
           v-for="(song, index) in store.searchResults" 
           :key="index"
           @click="playSong(song)"
-          class="flex justify-between items-center px-4 py-3 rounded-3 cursor-pointer transition-all duration-300 mb-2 gap-3.5 border"
-          :class="[
-            store.isDark 
-              ? 'bg-[#2c2c2c]/30 border-[#1abc9c]/20 hover:bg-[#1abc9c]/10' 
-              : 'bg-white/30 border-white/20 hover:bg-[#1abc9c]/10'
-          ]"
+          class="flex justify-between items-center px-4 py-3 rounded-3 cursor-pointer transition-all duration-300 mb-2 gap-3.5 border bg-white/30 border-white/20 hover:bg-[#1abc9c]/10"
           style="backdrop-filter: blur(10px);"
         >
           <div class="flex-1 min-w-0">
             <div 
-              class="font-semibold text-[15px] mb-1 whitespace-nowrap overflow-hidden text-ellipsis"
-              :class="store.isDark ? 'text-[#ecf0f1]' : 'text-[#2c3e50]'"
+              class="font-semibold text-[15px] mb-1 whitespace-nowrap overflow-hidden text-ellipsis text-[#2c3e50]"
             >
               {{ song.name }}
             </div>
             <div 
-              class="text-[13px] whitespace-nowrap overflow-hidden text-ellipsis"
-              :class="store.isDark ? 'text-[#95a5a6]' : 'text-[#7f8c8d]'"
+              class="text-[13px] whitespace-nowrap overflow-hidden text-ellipsis text-[#7f8c8d]"
             >
               {{ song.artist }}
             </div>
@@ -147,8 +118,12 @@ function selectSource(source: MusicSource) {
 }
 
 async function handleSearch() {
-  if (!searchQuery.value.trim() || store.isSearching) return
-  showMenu.value = false
+  if (store.isSearching) return
+  if (!searchQuery.value.trim()) {
+    store.showNotification('请输入搜索关键字', 'error')
+    return
+  }
+
   await store.search(searchQuery.value)
 }
 
