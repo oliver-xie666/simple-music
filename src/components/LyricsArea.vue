@@ -29,12 +29,12 @@
           class="px-1.25 py-2 mb-1.25 transition-all duration-300 rounded-2"
           :class="[
             index === store.currentLyricLine 
-              ? store.isDark 
-                ? 'text-[#34d1b6] font-bold bg-[#1abc9c]/12 scale-105' 
-                : 'text-[#1e9f78] font-bold bg-[#2ecc71]/12 scale-105'
-              : store.isDark ? 'text-[#ecf0f1]' : 'text-[#2c3e50]'
+              ? 'text-[#1abc9c] font-medium bg-[#1abc9c]/20'
+              : store.isDark 
+                ? 'text-[#ecf0f1] hover:bg-[#1abc9c]/10 hover:text-[#1abc9c]' 
+                : 'text-[#2c3e50] hover:bg-[#1abc9c]/10 hover:text-[#1abc9c]'
           ]"
-          :style="index === store.currentLyricLine ? 'box-shadow: 0 4px 15px rgba(46, 204, 113, 0.18); line-height: 2.2;' : 'line-height: 2;'"
+          :style="index === store.currentLyricLine ? 'line-height: 2.2;' : 'line-height: 2;'"
         >
           {{ line.text }}
         </div>
@@ -58,9 +58,6 @@ watch(() => store.currentLyricLine, () => {
       const container = lyricsContainer.value.querySelector('.overflow-y-auto')
       if (container) {
         const lyricEl = currentLyricRef.value as HTMLElement
-        const containerRect = container.getBoundingClientRect()
-        const lyricRect = lyricEl.getBoundingClientRect()
-        
         // 计算滚动位置，让当前歌词显示在中间
         const scrollTop = lyricEl.offsetTop - container.clientHeight / 2 + lyricEl.clientHeight / 2
         container.scrollTo({
