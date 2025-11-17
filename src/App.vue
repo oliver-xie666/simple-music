@@ -130,17 +130,16 @@ watch(() => store.isPlaying, (playing: boolean) => {
   }
 })
 
-// 监听当前歌曲变化
+// 监听当前歌曲变化：切换音频源，并确保补全封面信息（如果缺失）
 watch(() => store.currentSong, (song: any) => {
   if (!audioRef.value || !song) return
   audioRef.value.src = song.url
   audioRef.value.load()
-  if (store.isPlaying) {
-    audioRef.value.play().catch((err: any) => {
-      console.error('播放失败:', err)
-      store.pause()
-    })
-  }
+  // 切歌时重置进度
+  store.currentTime = 0
+  store.duration = 0
+  // 尝试为当前歌曲补全封面（如果没有封面但有 picId，会触发封面接口）
+  store.hydrateCurrentSongArtwork?.()
 })
 
 // 监听音量变化
@@ -176,6 +175,13 @@ function onEnded() {
 
 function onCanPlay() {
   store.isLoading = false
+  // 当音频可以播放时，如果当前是“播放”状态，确保真正开始播放
+  if (audioRef.value && store.isPlaying) {
+    audioRef.value.play().catch((err: any) => {
+      console.error('播放失败(onCanPlay):', err)
+      store.pause()
+    })
+  }
 }
 
 function onError() {

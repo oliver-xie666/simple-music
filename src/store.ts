@@ -15,9 +15,10 @@ export const useAppStore = defineStore('app', () => {
   const quality = ref<QualityType>('320')
   const isLoading = ref(false)
 
-  // ========== 播放列表 ==========
+  // ========== 播放列表 & 收藏 ==========
   const playlist = ref<Song[]>([])
   const currentIndex = ref(-1)
+  const favorites = ref<Song[]>([])
 
   // ========== 搜索 ==========
   const searchQuery = ref('')
@@ -88,6 +89,8 @@ export const useAppStore = defineStore('app', () => {
   }
 
   async function playAtIndex(index: number) {
+    // 防止在切歌过程中被重复触发（例如双击）
+    if (isLoading.value) return false
     if (index < 0 || index >= playlist.value.length) return false
 
     const targetSong = playlist.value[index]
@@ -173,6 +176,40 @@ export const useAppStore = defineStore('app', () => {
     currentSong.value = null
     pause()
     resetLyrics()
+    saveToStorage()
+  }
+
+  // 收藏列表管理
+  const isSameSong = (a: Song, b: Song) => a.id === b.id && a.source === b.source
+
+  function isFavorite(song: Song) {
+    return favorites.value.some(s => isSameSong(s, song))
+  }
+
+  function addToFavorites(song: Song) {
+    if (!isFavorite(song)) {
+      favorites.value.push(song)
+      saveToStorage()
+    }
+  }
+
+  function removeFromFavorites(song: Song) {
+    favorites.value = favorites.value.filter(s => !isSameSong(s, song))
+    saveToStorage()
+  }
+
+  function toggleFavorite(song: Song) {
+    if (isFavorite(song)) {
+      removeFromFavorites(song)
+      showNotification('已从收藏列表移除', 'info')
+    } else {
+      addToFavorites(song)
+      showNotification('已添加到收藏列表', 'success')
+    }
+  }
+
+  function clearFavorites() {
+    favorites.value = []
     saveToStorage()
   }
 
@@ -296,7 +333,7 @@ export const useAppStore = defineStore('app', () => {
       songsToAdd.forEach(song => addToPlaylist(song))
       showNotification(`已导入 ${songsToAdd.length} 首歌曲到播放列表`, 'success')
     } else {
-      // TODO: 实现收藏功能
+      songsToAdd.forEach(song => addToFavorites(song))
       showNotification(`已导入 ${songsToAdd.length} 首歌曲到收藏列表`, 'success')
     }
     
@@ -365,6 +402,7 @@ export const useAppStore = defineStore('app', () => {
     try {
       localStorage.setItem('simple-music-state', JSON.stringify({
         playlist: playlist.value,
+        favorites: favorites.value,
         currentIndex: currentIndex.value,
         volume: volume.value,
         playMode: playMode.value,
@@ -382,6 +420,7 @@ export const useAppStore = defineStore('app', () => {
       if (saved) {
         const data = JSON.parse(saved)
         playlist.value = data.playlist || []
+        favorites.value = data.favorites || []
         currentIndex.value = data.currentIndex ?? -1
         volume.value = data.volume ?? 0.8
         playMode.value = data.playMode || 'list-loop'
@@ -417,6 +456,15 @@ export const useAppStore = defineStore('app', () => {
     playAllSearchResults, importSelectedSearchResults,
     toggleTheme, saveToStorage, loadFromStorage,
     addAllToPlaylist, showNotification,
+    // 为当前歌曲补全封面（如果缺失）
+    hydrateCurrentSongArtwork: async () => {
+      if (!currentSong.value) return
+      const hydrated = await ensureSongArtwork(currentSong.value)
+      currentSong.value = hydrated
+      if (currentIndex.value >= 0 && currentIndex.value < playlist.value.length) {
+        playlist.value[currentIndex.value] = hydrated
+      }
+    },
     setCurrentTime: (time: number) => currentTime.value = time,
     setDuration: (d: number) => duration.value = d,
     setVolume: (v: number) => volume.value = v,
@@ -516,7 +564,7 @@ async function ensureSongArtwork(song: Song): Promise<Song> {
   }
 }
 
-function normalizeArtistField(value: any): string {
+export function normalizeArtistField(value: any): string {
   if (value === undefined || value === null) return '未知艺术家'
 
   if (Array.isArray(value)) {

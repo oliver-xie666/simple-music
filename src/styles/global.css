@@ -40,6 +40,83 @@ body.dark-mode ::-webkit-scrollbar-thumb {
   background: #14b8a6;
 }
 
+/* --- 播放列表项图标样式（参考 Solara 项目） --- */
+
+.playlist-row {
+  padding: 10px 12px;
+  padding-right: 110px;
+  border-radius: 8px;
+  transition: all 0.2s ease-in-out;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  position: relative;
+  font-size: 14px;
+  margin-bottom: 2px;
+}
+
+.playlist-row:hover {
+  transform: translateX(5px);
+}
+
+.playlist-item-download,
+.playlist-item-remove {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  padding: 0;
+  font-size: 14px;
+  cursor: pointer;
+  opacity: 0;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease, opacity 0.2s ease;
+  z-index: 5;
+}
+
+.playlist-row:hover .playlist-item-download,
+.playlist-row:hover .playlist-item-remove,
+.playlist-row:focus-within .playlist-item-download,
+.playlist-row:focus-within .playlist-item-remove {
+  opacity: 1;
+}
+
+.playlist-item-download {
+  right: 42px;
+  background: #2ecc71; /* var(--success-color) in Solara */
+  color: #ffffff;
+  border-color: rgba(46, 204, 113, 0.5);
+  box-shadow: 0 4px 10px rgba(46, 204, 113, 0.2);
+}
+
+.playlist-item-remove {
+  right: 10px;
+  background: rgba(255, 59, 48, 0.9);
+  color: #ffffff;
+  border-color: rgba(231, 76, 60, 0.5);
+  box-shadow: 0 4px 10px rgba(231, 76, 60, 0.22);
+}
+
+.playlist-item-download:hover,
+.playlist-row:focus-within .playlist-item-download {
+  transform: translateY(-50%) scale(1.05);
+  box-shadow: 0 8px 18px rgba(46, 204, 113, 0.25);
+  filter: brightness(1.05);
+}
+
+.playlist-item-remove:hover,
+.playlist-row:focus-within .playlist-item-remove {
+  transform: translateY(-50%) scale(1.05);
+  box-shadow: 0 8px 18px rgba(231, 76, 60, 0.28);
+  filter: brightness(1.05);
+}
+
 /* 音频元素隐藏 */
 audio {
   display: none;

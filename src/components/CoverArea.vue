@@ -8,7 +8,7 @@
   >
     <!-- 封面唱片 -->
     <div 
-      class="w-[90%] aspect-square flex-shrink-0 rounded-3 flex items-center justify-center mb-5 overflow-hidden relative"
+      class="w-full max-w-[260px] aspect-square flex-shrink-0 rounded-3 flex items-center justify-center mb-5 overflow-hidden relative"
       style="background: linear-gradient(45deg, #1abc9c, #2ecc71); box-shadow: 0 8px 20px rgba(0,0,0,0.15);"
       :class="!store.currentSong ? 'animate-pulse' : ''"
     >
@@ -49,7 +49,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useAppStore } from '../store'
+import { useAppStore, normalizeArtistField } from '../store'
 
 const store = useAppStore()
 
@@ -60,28 +60,5 @@ function handleImageError() {
   }
 }
 
-const artistText = computed(() => {
-  const artist = store.currentSong?.artist
-
-  if (!artist || (Array.isArray(artist) && artist.length === 0)) {
-    return '未知艺术家'
-  }
-
-  if (Array.isArray(artist)) {
-    const names = artist
-      .map(entry => {
-        if (!entry) return ''
-        if (typeof entry === 'string') return entry
-        if (typeof entry === 'object') {
-          return (entry as any).name || (entry as any).title || (entry as any).artist || ''
-        }
-        return String(entry)
-      })
-      .filter(Boolean)
-
-    return names.length ? names.join(' / ') : '未知艺术家'
-  }
-
-  return String(artist)
-})
+const artistText = computed(() => normalizeArtistField(store.currentSong?.artist))
 </script>
