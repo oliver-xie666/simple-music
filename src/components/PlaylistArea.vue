@@ -37,13 +37,19 @@
     </div>
 
     <!-- 播放列表内容 -->
-    <div v-else class="flex-1 w-full overflow-y-auto pr-2 -mr-2" style="overscroll-behavior: contain;">
+    <div
+      v-else
+      ref="listRef"
+      class="flex-1 w-full overflow-y-auto pr-2 -mr-2"
+      style="overscroll-behavior: contain;"
+    >
       <div class="w-full">
         <div 
           v-for="(song, index) in store.playlist" 
           :key="index"
           @click="store.playAtIndex(index)"
           class="px-3 py-2.5 rounded-2 transition-all duration-200 cursor-pointer whitespace-nowrap overflow-hidden text-ellipsis relative text-[14px] mb-0.5"
+          :ref="el => setSongRef(el, index)"
           :class="[
             store.currentIndex === index 
               ? 'text-[#1abc9c] font-medium bg-[#1abc9c]/20' 
@@ -60,7 +66,51 @@
 </template>
 
 <script setup lang="ts">
+import { nextTick, onBeforeUpdate, ref, watch } from 'vue'
 import { useAppStore } from '../store'
 
 const store = useAppStore()
+const listRef = ref<HTMLDivElement | null>(null)
+const songRefs = ref<(HTMLDivElement | null)[]>([])
+
+onBeforeUpdate(() => {
+  songRefs.value = []
+})
+
+const setSongRef = (el: Element | null, index: number) => {
+  songRefs.value[index] = el instanceof HTMLDivElement ? el : null
+}
+
+const scrollToCurrentSong = () => {
+  if (
+    store.currentIndex < 0 ||
+    !listRef.value ||
+    !songRefs.value[store.currentIndex]
+  ) {
+    return
+  }
+
+  const container = listRef.value
+  const target = songRefs.value[store.currentIndex]
+  const targetTop = target.offsetTop
+  const targetBottom = targetTop + target.offsetHeight
+  const viewTop = container.scrollTop
+  const viewBottom = viewTop + container.clientHeight
+
+  if (targetTop < viewTop) {
+    container.scrollTo({ top: Math.max(targetTop - 16, 0), behavior: 'smooth' })
+  } else if (targetBottom > viewBottom) {
+    const offset = targetBottom - container.clientHeight + 16
+    container.scrollTo({ top: offset, behavior: 'smooth' })
+  }
+}
+
+watch(
+  () => [store.currentIndex, store.playlist.length],
+  async () => {
+    await nextTick()
+    scrollToCurrentSong()
+  },
+  { immediate: true }
+)
 </script>

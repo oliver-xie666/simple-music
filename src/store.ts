@@ -1,7 +1,8 @@
-// 统一状态管理 - 完全按照 Solara 的逻辑
+// 统一状态管理 
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { Song, PlayMode, QualityType, LyricLine, MusicSource } from './types'
+import { getSongUrl, getLyric, getPicUrl } from './api'
 
 export const useAppStore = defineStore('app', () => {
   // ========== 播放器状态 ==========
@@ -31,6 +32,10 @@ export const useAppStore = defineStore('app', () => {
   // ========== 歌词 ==========
   const lyrics = ref<LyricLine[]>([])
   const currentLyricLine = ref(-1)
+  function resetLyrics() {
+    lyrics.value = []
+    currentLyricLine.value = -1
+  }
 
   // ========== 主题 ==========
   const isDark = ref(false)
@@ -56,22 +61,62 @@ export const useAppStore = defineStore('app', () => {
   function pause() { isPlaying.value = false }
   function togglePlay() { isPlaying.value = !isPlaying.value }
 
-  function playAtIndex(index: number) {
-    if (index >= 0 && index < playlist.value.length) {
-      currentIndex.value = index
-      currentSong.value = playlist.value[index]
-      play()
-      
-      // 加载歌词
-      if (currentSong.value.lrc) {
-        loadLyrics(currentSong.value.lrc)
-      } else {
-        lyrics.value = []
+  async function prepareSongForPlayback(song: Song): Promise<Song> {
+    const needsRefresh = !song.url || (song.resolvedQuality && song.resolvedQuality !== quality.value)
+
+    if (!needsRefresh && song.url) {
+      return song
+    }
+
+    try {
+      const response = await getSongUrl(song.id, song.source, mapQualityToApiValue(quality.value))
+      const playbackUrl = response?.data?.url
+
+      if (!playbackUrl) {
+        throw new Error('无法获取播放地址')
       }
+
+      return {
+        ...song,
+        url: playbackUrl,
+        resolvedQuality: quality.value
+      }
+    } catch (error) {
+      console.error('获取播放地址失败:', error)
+      throw new Error('无法获取播放地址')
     }
   }
 
-  function playNext() {
+  async function playAtIndex(index: number) {
+    if (index < 0 || index >= playlist.value.length) return false
+
+    const targetSong = playlist.value[index]
+    isLoading.value = true
+
+    try {
+      const playableSong = await prepareSongForPlayback(targetSong)
+      const hydratedSong = await ensureSongArtwork(playableSong)
+      playlist.value[index] = hydratedSong
+      currentIndex.value = index
+      currentSong.value = hydratedSong
+      play()
+
+      loadLyrics(hydratedSong)
+
+      return true
+    } catch (error: any) {
+      console.error('播放失败:', error)
+      pause()
+      showNotification(error?.message || '播放失败，请稍后重试', 'error')
+      return false
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  async function playNext() {
+    if (playlist.value.length === 0) return
+
     if (playMode.value === 'single-loop') {
       currentTime.value = 0
       play()
@@ -79,21 +124,23 @@ export const useAppStore = defineStore('app', () => {
     }
     if (playMode.value === 'shuffle') {
       const randomIndex = Math.floor(Math.random() * playlist.value.length)
-      playAtIndex(randomIndex)
+      await playAtIndex(randomIndex)
       return
     }
     if (currentIndex.value < playlist.value.length - 1) {
-      playAtIndex(currentIndex.value + 1)
+      await playAtIndex(currentIndex.value + 1)
     } else {
-      playAtIndex(0)
+      await playAtIndex(0)
     }
   }
 
-  function playPrevious() {
+  async function playPrevious() {
+    if (playlist.value.length === 0) return
+
     if (currentIndex.value > 0) {
-      playAtIndex(currentIndex.value - 1)
+      await playAtIndex(currentIndex.value - 1)
     } else {
-      playAtIndex(playlist.value.length - 1)
+      await playAtIndex(playlist.value.length - 1)
     }
   }
 
@@ -125,6 +172,7 @@ export const useAppStore = defineStore('app', () => {
     currentIndex.value = -1
     currentSong.value = null
     pause()
+    resetLyrics()
     saveToStorage()
   }
 
@@ -148,17 +196,28 @@ export const useAppStore = defineStore('app', () => {
       const data = await response.json()
       
       if (Array.isArray(data)) {
-        const newResults = data.map((item: any) => ({
-          id: String(item.id ?? item.url_id ?? Math.random()),
-          name: item.name ?? item.title ?? '未知歌曲',
-          artist: item.artist ?? item.author ?? '未知艺术家',
-          album: item.album ?? '未知专辑',
-          cover: item.pic ?? '',
-          url: item.url ?? '',
-          lrc: item.lrc ?? '',
-          duration: 0,
-          source: item.source ?? searchSource.value
-        }))
+        const newResults = data.map((item: any) => {
+          const lyricId = getFirstNonEmptyString(item.lyric_id, item.lyricId, item.id)
+          const picId = getFirstNonEmptyString(item.pic_id, item.picId, item.pic_str)
+          const urlId = getFirstNonEmptyString(item.url_id, item.urlId)
+          const coverUrl = typeof item.pic === 'string' ? item.pic : ''
+          const lrcValue = typeof item.lrc === 'string' ? item.lrc : ''
+
+          return {
+            id: String(item.id ?? urlId ?? Math.random()),
+            name: item.name ?? item.title ?? '未知歌曲',
+            artist: normalizeArtistField(item.artist ?? item.author),
+            album: normalizeAlbumField(item.album),
+            cover: coverUrl,
+            picId: picId || undefined,
+            url: item.url ?? '',
+            urlId: urlId || undefined,
+            lrc: lrcValue,
+            lyricId: lyricId || undefined,
+            duration: Number(item.time ?? item.duration ?? 0) || 0,
+            source: item.source ?? searchSource.value
+          } as Song
+        })
         
         if (append) {
           searchResults.value = [...searchResults.value, ...newResults]
@@ -180,7 +239,7 @@ export const useAppStore = defineStore('app', () => {
   function loadMoreSearchResults() {
     if (isSearching.value) return
     searchPage.value++
-    search(searchQuery.value, searchPage.value, false)
+    search(searchQuery.value, searchPage.value, true)
   }
 
   function goToPage(page: number) {
@@ -209,12 +268,12 @@ export const useAppStore = defineStore('app', () => {
     selectedSearchResults.value.clear()
   }
 
-  function playAllSearchResults() {
+  async function playAllSearchResults() {
     if (searchResults.value.length === 0) return
     const startIndex = playlist.value.length
     searchResults.value.forEach(song => addToPlaylist(song))
     if (playlist.value.length > startIndex) {
-      playAtIndex(startIndex)
+      await playAtIndex(startIndex)
     }
     showNotification(`已添加 ${searchResults.value.length} 首歌曲到播放列表`, 'success')
   }
@@ -245,19 +304,31 @@ export const useAppStore = defineStore('app', () => {
   }
 
   // ========== 歌词 ==========
-  async function loadLyrics(lrcUrl: string) {
+  let lyricRequestId = 0
+
+  async function loadLyrics(song?: Song | null) {
+    const requestId = ++lyricRequestId
+
+    if (!song) {
+      resetLyrics()
+      return
+    }
+
     try {
-      if (!lrcUrl) {
-        lyrics.value = []
+      const lyricText = await resolveLyricText(song)
+      if (requestId !== lyricRequestId) return
+
+      if (!lyricText.trim()) {
+        resetLyrics()
         return
       }
-      
-      const response = await fetch(lrcUrl)
-      const text = await response.text()
-      lyrics.value = parseLrc(text)
+
+      lyrics.value = parseLrc(lyricText)
+      currentLyricLine.value = -1
     } catch (error) {
+      if (requestId !== lyricRequestId) return
       console.error('加载歌词失败:', error)
-      lyrics.value = []
+      resetLyrics()
     }
   }
 
@@ -385,4 +456,114 @@ function parseLrc(lrcText: string): LyricLine[] {
   }
 
   return lyrics.sort((a, b) => a.time - b.time)
+}
+
+async function resolveLyricText(song: Song): Promise<string> {
+  if (song.lrc) {
+    if (song.lrc.startsWith('http')) {
+      const response = await fetch(song.lrc)
+      return await response.text()
+    }
+    if (isInlineLyricPayload(song.lrc)) {
+      return song.lrc
+    }
+  }
+
+  const lyricId = song.lyricId || song.id
+  if (!lyricId) return ''
+
+  const response = await getLyric(lyricId, song.source)
+  const data = response?.data
+
+  if (typeof data === 'string') {
+    return data
+  }
+
+  if (data && typeof data.lyric === 'string') {
+    return data.lyric
+  }
+
+  if (data && typeof data.lrc === 'string') {
+    return data.lrc
+  }
+
+  if (data && typeof data.lrc === 'object' && typeof data.lrc?.lyric === 'string') {
+    return data.lrc.lyric
+  }
+
+  return ''
+}
+
+function isInlineLyricPayload(content: string) {
+  return /\[\d{2}:\d{2}/.test(content)
+}
+
+async function ensureSongArtwork(song: Song): Promise<Song> {
+  if (song.cover && song.cover.trim().length > 0) {
+    return song
+  }
+  if (!song.picId) return song
+
+  try {
+    const coverUrl = await getPicUrl(song.picId, song.source)
+    if (!coverUrl) {
+      return song
+    }
+    return { ...song, cover: coverUrl }
+  } catch (error) {
+    console.error('封面获取失败:', error)
+    return song
+  }
+}
+
+function normalizeArtistField(value: any): string {
+  if (value === undefined || value === null) return '未知艺术家'
+
+  if (Array.isArray(value)) {
+    const names = value
+      .map(entry => {
+        if (!entry) return ''
+        if (typeof entry === 'string') return entry
+        if (typeof entry === 'object') {
+          return getFirstNonEmptyString(entry.name, entry.title, entry.artist)
+        }
+        return String(entry)
+      })
+      .filter(Boolean)
+
+    return names.length ? names.join(' / ') : '未知艺术家'
+  }
+
+  if (typeof value === 'object') {
+    if (Array.isArray(value.artist)) return normalizeArtistField(value.artist)
+    if (Array.isArray(value.ar)) return normalizeArtistField(value.ar)
+    if (Array.isArray((value as any).data)) return normalizeArtistField((value as any).data)
+
+    return getFirstNonEmptyString(value.name, value.title, value.artist) || '未知艺术家'
+  }
+
+  return String(value)
+}
+
+function normalizeAlbumField(value: any): string {
+  if (value === undefined || value === null) return '未知专辑'
+
+  if (typeof value === 'object') {
+    return getFirstNonEmptyString(value.name, value.title, value.album) || '未知专辑'
+  }
+
+  return String(value)
+}
+
+function getFirstNonEmptyString(...values: any[]): string {
+  for (const value of values) {
+    if (value === undefined || value === null) continue
+    const str = String(value).trim()
+    if (str) return str
+  }
+  return ''
+}
+
+function mapQualityToApiValue(targetQuality: QualityType) {
+  return targetQuality === 'flac' ? '999' : targetQuality
 }

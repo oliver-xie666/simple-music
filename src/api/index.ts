@@ -46,3 +46,44 @@ export const getSongUrl = async (songId: string, source: string, quality: string
   
   return apiClient.get(url);
 };
+
+export const getLyric = async (songId: string, source: string = 'netease') => {
+  const signature = generateSignature();
+  const params = new URLSearchParams({
+    types: 'lyric',
+    id: songId,
+    source,
+    s: signature,
+  });
+
+  const url = import.meta.env.DEV ? `/proxy?${params.toString()}` : `/api.php?${params.toString()}`;
+
+  return apiClient.get(url);
+};
+
+export const getPicUrl = async (picId: string, source: string = 'netease', size: number = 300): Promise<string> => {
+  if (!picId) return '';
+
+  const signature = generateSignature();
+  const params = new URLSearchParams({
+    types: 'pic',
+    id: picId,
+    source,
+    size: size.toString(),
+    s: signature,
+  });
+
+  const url = import.meta.env.DEV ? `/proxy?${params.toString()}` : `/api.php?${params.toString()}`;
+  const response = await apiClient.get(url);
+  const data = response?.data;
+
+  if (typeof data === 'string') {
+    return data;
+  }
+
+  if (data && typeof data.url === 'string') {
+    return data.url;
+  }
+
+  return '';
+};

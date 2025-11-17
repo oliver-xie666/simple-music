@@ -1,6 +1,5 @@
 import axios from 'axios'
 
-// 完全按照 Solara 的 API 格式
 const API_BASE_URL = 'https://music-api.gdstudio.xyz/api.php'
 
 function generateSignature() {

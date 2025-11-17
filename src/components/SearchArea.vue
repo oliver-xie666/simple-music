@@ -20,7 +20,7 @@
       >
       
       <!-- 音乐源选择 -->
-      <div class="relative flex-shrink-0">
+      <div class="relative flex-shrink-0" data-source-selector>
         <button 
           @click="showMenu = !showMenu"
           class="flex items-center justify-between gap-2 px-4.5 py-3 border rounded-3 font-medium cursor-pointer transition-all duration-250 min-w-[150px] bg-white/50 text-[#2c3e50] border-black/10 hover:border-[#1abc9c] hover:text-[#1abc9c]"
@@ -142,21 +142,27 @@
       </div>
 
       <!-- 搜索结果列表 -->
-      <div class="flex flex-col gap-2 py-3 pr-2 -mr-2 flex-1 min-h-0 overflow-y-auto max-h-[35vh]" style="overscroll-behavior: contain;">
+      <div 
+        class="flex flex-col gap-2 py-3 pr-2 -mr-2 flex-1 min-h-0 overflow-y-auto max-h-[35vh]" 
+        style="overscroll-behavior: contain;"
+        @scroll.passive="handleResultsScroll"
+      >
           <div 
             v-for="(song, index) in store.searchResults" 
             :key="index"
             @click="toggleSelection(index, $event)"
-            class="flex items-center gap-3 px-4 py-3 rounded-3 cursor-pointer transition-all duration-300 border"
+            class="flex items-center gap-3 px-4 py-3 rounded-3 cursor-pointer transition-all duration-300 border relative"
             :class="[
               store.isDark 
                 ? 'bg-white/10 border-white/20 hover:bg-white/15' 
                 : 'bg-white/70 border-white/60 hover:bg-[#1abc9c]/10',
               store.selectedSearchResults.has(index) 
-                ? 'bg-[#1abc9c]/20 border-[#1abc9c] shadow-[0_6px_16px_rgba(26,188,156,0.25)]' 
+                ? store.isDark
+                  ? 'border-[#34d1b6] bg-[#1abc9c]/15'
+                  : 'border-[#1abc9c] bg-[#1abc9c]/12'
                 : ''
             ]"
-            style="backdrop-filter: blur(12px);"
+            :style="getSearchResultStyle(index)"
           >
             <!-- 左侧：圆形复选框 -->
             <button
@@ -177,21 +183,25 @@
             <!-- 中间：歌曲信息 -->
             <div class="flex-1 min-w-0">
               <div 
-                class="font-semibold text-[15px] mb-1 whitespace-nowrap overflow-hidden text-ellipsis"
-                :class="store.isDark ? 'text-white' : 'text-[#2c3e50]'"
+                class="font-semibold text-[15px] mb-1 whitespace-nowrap overflow-hidden text-ellipsis transition-colors duration-200"
+                :class="store.selectedSearchResults.has(index)
+                  ? (store.isDark ? 'text-[#34d1b6]' : 'text-[#12836d]')
+                  : (store.isDark ? 'text-white' : 'text-[#2c3e50]')"
               >
                 {{ song.name }}
               </div>
               <div 
-                class="text-[13px] whitespace-nowrap overflow-hidden text-ellipsis flex items-center gap-2"
-                :class="store.isDark ? 'text-white/70' : 'text-[#7f8c8d]'"
+                class="text-[13px] whitespace-nowrap overflow-hidden text-ellipsis flex items-center gap-2 transition-colors duration-200"
+                :class="store.selectedSearchResults.has(index)
+                  ? (store.isDark ? 'text-[#9ff3e2]' : 'text-[#1abc9c]')
+                  : (store.isDark ? 'text-white/70' : 'text-[#7f8c8d]')"
               >
                 <span class="truncate">{{ formatArtist(song.artist) }}</span>
                 <span 
                   class="flex-shrink-0"
                   :class="store.isDark ? 'text-white/30' : 'text-[#c0c8cc]'"
                 >
-                  •
+                  -
                 </span>
                 <span class="truncate">{{ formatAlbum(song.album) }}</span>
               </div>
@@ -210,55 +220,62 @@
               </button>
 
               <!-- 下载按钮 -->
-              <div class="relative">
+              <div>
                 <button 
-                  @click.stop="showDownloadMenu = showDownloadMenu === index ? null : index"
+                  data-download-trigger
+                  @click.stop="toggleDownloadMenu(index, $event)"
                   class="w-8 h-8 p-0 rounded-2 border flex justify-center items-center text-[14px] transition-all duration-200 text-white bg-[#2ecc71] border-[#2ecc71]/55 hover:bg-[#27ae60] shadow-[0_6px_16px_rgba(46,204,113,0.28)]"
                   title="下载"
                 >
                   <i class="fas fa-download"></i>
                 </button>
-
-                <!-- 下载质量菜单 -->
-                <div
-                  v-show="showDownloadMenu === index"
-                  class="absolute top-[calc(100%+4px)] right-0 rounded-2 border min-w-[140px] z-[20000] shadow-[0_8px_24px_rgba(0,0,0,0.18)]"
-                  :class="store.isDark ? 'bg-[#2a2a2a] border-white/20' : 'bg-white border-black/10'"
-                >
-                  <button
-                    @click.stop="handleDownload(song, '128')"
-                    class="w-full px-4 py-2 text-left text-0.9em cursor-pointer transition-all duration-200 border-none bg-transparent"
-                    :class="store.isDark ? 'text-white hover:bg-white/10' : 'text-[#2c3e50] hover:bg-[#1abc9c]/10'"
-                  >
-                    标准音质 (128k)
-                  </button>
-                  <button
-                    @click.stop="handleDownload(song, '192')"
-                    class="w-full px-4 py-2 text-left text-0.9em cursor-pointer transition-all duration-200 border-none bg-transparent"
-                    :class="store.isDark ? 'text-white hover:bg-white/10' : 'text-[#2c3e50] hover:bg-[#1abc9c]/10'"
-                  >
-                    高音质 (192k)
-                  </button>
-                  <button
-                    @click.stop="handleDownload(song, '320')"
-                    class="w-full px-4 py-2 text-left text-0.9em cursor-pointer transition-all duration-200 border-none bg-transparent"
-                    :class="store.isDark ? 'text-white hover:bg-white/10' : 'text-[#2c3e50] hover:bg-[#1abc9c]/10'"
-                  >
-                    超高音质 (320k)
-                  </button>
-                  <button
-                    @click.stop="handleDownload(song, 'flac')"
-                    class="w-full px-4 py-2 text-left text-0.9em cursor-pointer transition-all duration-200 border-none bg-transparent"
-                    :class="store.isDark ? 'text-white hover:bg-white/10' : 'text-[#2c3e50] hover:bg-[#1abc9c]/10'"
-                  >
-                    无损音质 (FLAC)
-                  </button>
-                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
+
+      <Teleport to="body">
+        <div
+          v-if="showDownloadMenu !== null && activeDownloadSong"
+          data-download-menu
+          class="fixed rounded-2 border min-w-[170px] z-[200000] shadow-[0_12px_30px_rgba(0,0,0,0.2)]"
+          :class="store.isDark ? 'bg-[#2a2a2a] border-white/20' : 'bg-white border-black/10'"
+          :style="{
+            top: `${downloadMenuPosition.y}px`,
+            left: `${downloadMenuPosition.x}px`
+          }"
+        >
+          <button
+            @click.stop="handleDownload(activeDownloadSong, '128')"
+            class="w-full px-4 py-2 text-left text-0.9em cursor-pointer transition-all duration-200 border-none bg-transparent"
+            :class="store.isDark ? 'text-white hover:bg-white/10' : 'text-[#2c3e50] hover:bg-[#1abc9c]/10'"
+          >
+            标准音质 (128k)
+          </button>
+          <button
+            @click.stop="handleDownload(activeDownloadSong, '192')"
+            class="w-full px-4 py-2 text-left text-0.9em cursor-pointer transition-all duration-200 border-none bg-transparent"
+            :class="store.isDark ? 'text-white hover:bg-white/10' : 'text-[#2c3e50] hover:bg-[#1abc9c]/10'"
+          >
+            高音质 (192k)
+          </button>
+          <button
+            @click.stop="handleDownload(activeDownloadSong, '320')"
+            class="w-full px-4 py-2 text-left text-0.9em cursor-pointer transition-all duration-200 border-none bg-transparent"
+            :class="store.isDark ? 'text-white hover:bg-white/10' : 'text-[#2c3e50] hover:bg-[#1abc9c]/10'"
+          >
+            超高音质 (320k)
+          </button>
+          <button
+            @click.stop="handleDownload(activeDownloadSong, 'flac')"
+            class="w-full px-4 py-2 text-left text-0.9em cursor-pointer transition-all duration-200 border-none bg-transparent"
+            :class="store.isDark ? 'text-white hover:bg-white/10' : 'text-[#2c3e50] hover:bg-[#1abc9c]/10'"
+          >
+            无损音质 (FLAC)
+          </button>
+        </div>
+      </Teleport>
 
       <!-- 分页 -->
         <div class="flex flex-col gap-3 pt-4 border-t"
@@ -356,8 +373,14 @@ const searchQuery = ref('')
 const showMenu = ref(false)
 // const showImportMenu = ref(false)
 const showDownloadMenu = ref<number | null>(null)
+const downloadMenuPosition = ref({ x: 0, y: 0 })
 const jumpPage = ref(1)
 const searchAreaRef = ref<HTMLElement | null>(null)
+
+const activeDownloadSong = computed(() => {
+  if (showDownloadMenu.value === null) return null
+  return store.searchResults[showDownloadMenu.value] || null
+})
 
 const totalPages = computed(() => {
   // 如果当前页有数据且数量等于每页限制，说明可能还有更多页
@@ -404,12 +427,31 @@ function handlePlayAll() {
 }
 
 function toggleSelection(index: number, e: MouseEvent) {
-  // 如果点击的是按钮，不切换选中状态
   const target = e.target as HTMLElement
-  if (target.closest('button') || target.closest('.relative')) {
+  if (target.closest('button')) {
     return
   }
   store.toggleSearchResultSelection(index)
+}
+
+function getSearchResultStyle(index: number) {
+  const base: Record<string, string> = {
+    backdropFilter: 'blur(12px)'
+  }
+
+  if (store.selectedSearchResults.has(index)) {
+    base.borderWidth = '2px'
+    base.borderColor = store.isDark ? '#34d1b6' : '#1abc9c'
+    base.boxShadow = store.isDark
+      ? '0 12px 32px rgba(26,188,156,0.35)'
+      : '0 12px 30px rgba(26,188,156,0.25)'
+  } else {
+    base.boxShadow = store.isDark
+      ? '0 6px 18px rgba(0,0,0,0.35)'
+      : '0 6px 16px rgba(0,0,0,0.08)'
+  }
+
+  return base
 }
 
 function handleImportToPlaylist() {
@@ -423,7 +465,7 @@ function handleImportToPlaylist() {
 // }
 
 async function handleDownload(song: any, quality: string) {
-  showDownloadMenu.value = null
+  closeDownloadMenu()
   
   try {
     store.showNotification('正在准备下载...', 'info')
@@ -532,16 +574,54 @@ function handleLimitChange(e: Event) {
   store.setSearchLimit(limit)
 }
 
+function toggleDownloadMenu(index: number, event: MouseEvent) {
+  if (showDownloadMenu.value === index) {
+    closeDownloadMenu()
+    return
+  }
+
+  const button = event.currentTarget as HTMLElement | null
+  if (button) {
+    const rect = button.getBoundingClientRect()
+    const menuWidth = 180
+    const padding = 12
+    const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : menuWidth + padding * 2
+    const maxLeft = Math.max(padding, viewportWidth - menuWidth - padding)
+    const clampedLeft = Math.min(Math.max(rect.left, padding), maxLeft)
+
+    downloadMenuPosition.value = {
+      x: clampedLeft,
+      y: rect.bottom + 6
+    }
+  }
+
+  showDownloadMenu.value = index
+}
+
+function closeDownloadMenu() {
+  if (showDownloadMenu.value !== null) {
+    showDownloadMenu.value = null
+  }
+}
+
+function handleResultsScroll() {
+  closeDownloadMenu()
+}
+
 function handleClickOutside(e: MouseEvent) {
   const target = e.target as HTMLElement
-  if (showMenu.value && !target.closest('.relative')) {
+  if (showMenu.value && !target.closest('[data-source-selector]')) {
     showMenu.value = false
   }
   // if (showImportMenu.value && !target.closest('.relative')) {
   //   showImportMenu.value = false
   // }
-  if (showDownloadMenu.value !== null && !target.closest('.relative')) {
-    showDownloadMenu.value = null
+  if (
+    showDownloadMenu.value !== null &&
+    !target.closest('[data-download-menu]') &&
+    !target.closest('[data-download-trigger]')
+  ) {
+    closeDownloadMenu()
   }
   // 点击搜索区域外部时，清空搜索结果（关闭下拉框）
   if (searchAreaRef.value && !searchAreaRef.value.contains(target) && store.searchResults.length > 0) {
@@ -555,12 +635,22 @@ watch(() => store.searchPage, (newPage) => {
   jumpPage.value = newPage
 }, { immediate: true })
 
+watch(() => store.searchResults.length, () => {
+  closeDownloadMenu()
+})
+
 onMounted(() => {
   document.addEventListener('click', handleClickOutside)
   jumpPage.value = store.searchPage
+  if (typeof window !== 'undefined') {
+    window.addEventListener('resize', closeDownloadMenu)
+  }
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('click', handleClickOutside)
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('resize', closeDownloadMenu)
+  }
 })
 </script>

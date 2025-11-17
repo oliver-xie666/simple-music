@@ -10,8 +10,12 @@ export interface Song {
   artist: string
   album?: string
   cover?: string
+  picId?: string
   url: string
+  urlId?: string
+  resolvedQuality?: QualityType
   lrc?: string
+  lyricId?: string
   duration: number
   source: MusicSource
 }
