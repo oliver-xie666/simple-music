@@ -23,6 +23,10 @@ export const useAppStore = defineStore('app', () => {
   const searchResults = ref<Song[]>([])
   const searchSource = ref<MusicSource>('netease')
   const isSearching = ref(false)
+  const searchPage = ref(1)
+  const searchLimit = ref(20)
+  const searchTotal = ref(0)
+  const selectedSearchResults = ref<Set<number>>(new Set())
 
   // ========== 歌词 ==========
   const lyrics = ref<LyricLine[]>([])
@@ -125,22 +129,26 @@ export const useAppStore = defineStore('app', () => {
   }
 
   // ========== 搜索 ==========
-  async function search(keyword: string) {
+  async function search(keyword: string, page: number = 1, append: boolean = false) {
     if (!keyword.trim()) {
       showNotification('请输入搜索关键字', 'error')
       return
     }
-    searchQuery.value = keyword
+    if (!append) {
+      searchQuery.value = keyword
+      searchPage.value = page
+      selectedSearchResults.value.clear()
+    }
     isSearching.value = true
     
     try {
       const signature = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
-      const url = `/proxy?types=search&source=${searchSource.value}&name=${encodeURIComponent(keyword)}&count=100&pages=1&s=${signature}`
+      const url = `/proxy?types=search&source=${searchSource.value}&name=${encodeURIComponent(keyword)}&count=${searchLimit.value}&pages=${page}&s=${signature}`
       const response = await fetch(url, { headers: { 'Accept': 'application/json' } })
       const data = await response.json()
       
       if (Array.isArray(data)) {
-        searchResults.value = data.map((item: any) => ({
+        const newResults = data.map((item: any) => ({
           id: String(item.id ?? item.url_id ?? Math.random()),
           name: item.name ?? item.title ?? '未知歌曲',
           artist: item.artist ?? item.author ?? '未知艺术家',
@@ -151,6 +159,13 @@ export const useAppStore = defineStore('app', () => {
           duration: 0,
           source: item.source ?? searchSource.value
         }))
+        
+        if (append) {
+          searchResults.value = [...searchResults.value, ...newResults]
+        } else {
+          searchResults.value = newResults
+        }
+        searchTotal.value = searchResults.value.length
       } else {
         showNotification('搜索结果格式错误', 'error')
       }
@@ -160,6 +175,73 @@ export const useAppStore = defineStore('app', () => {
     } finally {
       isSearching.value = false
     }
+  }
+
+  function loadMoreSearchResults() {
+    if (isSearching.value) return
+    searchPage.value++
+    search(searchQuery.value, searchPage.value, false)
+  }
+
+  function goToPage(page: number) {
+    if (isSearching.value) return
+    if (page < 1) return
+    search(searchQuery.value, page, false)
+  }
+
+  function setSearchLimit(limit: number) {
+    searchLimit.value = limit
+    // 重新搜索当前页
+    if (searchQuery.value.trim()) {
+      search(searchQuery.value, searchPage.value, false)
+    }
+  }
+
+  function toggleSearchResultSelection(index: number) {
+    if (selectedSearchResults.value.has(index)) {
+      selectedSearchResults.value.delete(index)
+    } else {
+      selectedSearchResults.value.add(index)
+    }
+  }
+
+  function clearSearchResultSelection() {
+    selectedSearchResults.value.clear()
+  }
+
+  function playAllSearchResults() {
+    if (searchResults.value.length === 0) return
+    const startIndex = playlist.value.length
+    searchResults.value.forEach(song => addToPlaylist(song))
+    if (playlist.value.length > startIndex) {
+      playAtIndex(startIndex)
+    }
+    showNotification(`已添加 ${searchResults.value.length} 首歌曲到播放列表`, 'success')
+  }
+
+  function importSelectedSearchResults(target: 'playlist' | 'favorites' = 'playlist') {
+    if (selectedSearchResults.value.size === 0) {
+      showNotification('请先选择要导入的歌曲', 'warning')
+      return
+    }
+    
+    const indices = Array.from(selectedSearchResults.value).filter(idx => idx >= 0 && idx < searchResults.value.length)
+    const songsToAdd = indices.map(idx => searchResults.value[idx]).filter(Boolean)
+    
+    if (songsToAdd.length === 0) {
+      showNotification('未找到可导入的歌曲', 'warning')
+      return
+    }
+    
+    if (target === 'playlist') {
+      songsToAdd.forEach(song => addToPlaylist(song))
+      showNotification(`已导入 ${songsToAdd.length} 首歌曲到播放列表`, 'success')
+    } else {
+      // TODO: 实现收藏功能
+      showNotification(`已导入 ${songsToAdd.length} 首歌曲到收藏列表`, 'success')
+    }
+    
+    clearSearchResultSelection()
   }
 
   // ========== 歌词 ==========
@@ -252,13 +334,16 @@ export const useAppStore = defineStore('app', () => {
     // 状态
     currentSong, isPlaying, currentTime, duration, volume, playMode, quality, isLoading,
     playlist, currentIndex, searchQuery, searchResults, searchSource, isSearching,
+    searchPage, searchLimit, searchTotal, selectedSearchResults,
     lyrics, currentLyricLine, isDark, currentGradient, notification,
     // 计算属性
     progress, formattedCurrentTime, formattedDuration,
     // 方法
     play, pause, togglePlay, playAtIndex, playNext, playPrevious,
     addToPlaylist, removeFromPlaylist, clearPlaylist,
-    search, loadLyrics, updateLyricIndex,
+    search, loadMoreSearchResults, goToPage, setSearchLimit, loadLyrics, updateLyricIndex,
+    toggleSearchResultSelection, clearSearchResultSelection,
+    playAllSearchResults, importSelectedSearchResults,
     toggleTheme, saveToStorage, loadFromStorage,
     addAllToPlaylist, showNotification,
     setCurrentTime: (time: number) => currentTime.value = time,

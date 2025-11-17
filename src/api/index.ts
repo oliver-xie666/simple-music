@@ -15,7 +15,7 @@ function generateSignature() {
   return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 }
 
-export const searchMusic = (keyword: string, source: string, page: number = 1, count: number = 100) => {
+export const searchMusic = (keyword: string, source: string, page: number = 1, count: number = 20) => {
   const signature = generateSignature();
   const params = new URLSearchParams({
     types: 'search',
@@ -27,6 +27,21 @@ export const searchMusic = (keyword: string, source: string, page: number = 1, c
   });
 
   // 根据环境确定请求路径
+  const url = import.meta.env.DEV ? `/proxy?${params.toString()}` : `/api.php?${params.toString()}`;
+  
+  return apiClient.get(url);
+};
+
+export const getSongUrl = async (songId: string, source: string, quality: string = '320') => {
+  const signature = generateSignature();
+  const params = new URLSearchParams({
+    types: 'url',
+    id: songId,
+    source,
+    br: quality,
+    s: signature,
+  });
+
   const url = import.meta.env.DEV ? `/proxy?${params.toString()}` : `/api.php?${params.toString()}`;
   
   return apiClient.get(url);
