@@ -14,6 +14,7 @@ export const useAppStore = defineStore('app', () => {
   const playMode = ref<PlayMode>('list-loop')
   const quality = ref<QualityType>('320')
   const isLoading = ref(false)
+  const pendingSeekTime = ref<number | null>(null)
 
   // ========== 播放列表 & 收藏 ==========
   const playlist = ref<Song[]>([])
@@ -144,6 +145,42 @@ export const useAppStore = defineStore('app', () => {
       await playAtIndex(currentIndex.value - 1)
     } else {
       await playAtIndex(playlist.value.length - 1)
+    }
+  }
+
+  // 切换音质后，重新加载当前歌曲，同时尽量保留播放进度和播放/暂停状态
+  async function reloadCurrentSongWithNewQuality(): Promise<boolean> {
+    if (!currentSong.value || currentIndex.value < 0 || currentIndex.value >= playlist.value.length) {
+      return false
+    }
+
+    const wasPlaying = isPlaying.value
+    const targetTime = currentTime.value || 0
+
+    try {
+      const targetIndex = currentIndex.value
+      const playableSong = await prepareSongForPlayback(playlist.value[targetIndex])
+      const hydratedSong = await ensureSongArtwork(playableSong)
+      playlist.value[targetIndex] = hydratedSong
+      currentSong.value = hydratedSong
+
+      // 重新加载歌词，确保与当前歌曲同步
+      await loadLyrics(hydratedSong)
+
+      // 记录需要恢复的播放进度，待音频元数据加载完成后在 App 中统一处理
+      pendingSeekTime.value = targetTime
+
+      // 恢复之前的播放/暂停状态
+      if (wasPlaying) {
+        play()
+      } else {
+        pause()
+      }
+
+      return true
+    } catch (error) {
+      console.error('切换音质后重新加载当前歌曲失败:', error)
+      return false
     }
   }
 
@@ -442,7 +479,7 @@ export const useAppStore = defineStore('app', () => {
 
   return {
     // 状态
-    currentSong, isPlaying, currentTime, duration, volume, playMode, quality, isLoading,
+    currentSong, isPlaying, currentTime, duration, volume, playMode, quality, isLoading, pendingSeekTime,
     playlist, currentIndex, searchQuery, searchResults, searchSource, isSearching,
     searchPage, searchLimit, searchTotal, selectedSearchResults,
     lyrics, currentLyricLine, isDark, currentGradient, notification,
@@ -470,7 +507,9 @@ export const useAppStore = defineStore('app', () => {
     setVolume: (v: number) => volume.value = v,
     setPlayMode: (mode: PlayMode) => playMode.value = mode,
     setQuality: (q: QualityType) => quality.value = q,
-    setLoading: (loading: boolean) => isLoading.value = loading
+    setLoading: (loading: boolean) => isLoading.value = loading,
+    reloadCurrentSongWithNewQuality,
+    setPendingSeekTime: (time: number | null) => pendingSeekTime.value = time
   }
 })
 

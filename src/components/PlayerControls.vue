@@ -64,7 +64,7 @@
         step="0.1"
         class="flex-1 h-2 rounded-full cursor-pointer transition-all duration-200"
         :style="{
-          background: `linear-gradient(to right, #1abc9c 0%, #1abc9c ${store.progress}%, rgba(255, 255, 255, 0.3) ${store.progress}%, rgba(255, 255, 255, 0.15) 100%)`
+          background: `linear-gradient(to right, #1abc9c 0%, #1abc9c ${store.progress}%, rgba(255, 255, 255, 1) ${store.progress}%, rgba(255, 255, 255, 1) 100%)`
         }"
       />
       <span 
@@ -134,7 +134,7 @@
             step="1"
             class="w-[90px] sm:w-[110px] h-1.5 rounded-full cursor-pointer"
             :style="{
-              background: `linear-gradient(to right, #1abc9c 0%, #1abc9c ${store.volume * 100}%, rgba(255, 255, 255, 0.3) ${store.volume * 100}%, rgba(255, 255, 255, 0.15) 100%)`
+              background: `linear-gradient(to right, #1abc9c 0%, #1abc9c ${store.volume * 100}%, rgba(255, 255, 255, 1) ${store.volume * 100}%, rgba(255, 255, 255, 1) 100%)`
             }"
           />
         </div>
@@ -160,7 +160,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { useAppStore } from '../store'
+import { useAppStore, normalizeArtistField } from '../store'
 import type { QualityType, PlayMode } from '../types'
 
 const store = useAppStore()
@@ -180,7 +180,7 @@ const qualityText = computed(() =>
 )
 
 const playModeIcon = computed(() => {
-  if (store.playMode === 'single-loop') return 'fas fa-repeat-1'
+  if (store.playMode === 'single-loop') return 'fas fa-redo'
   if (store.playMode === 'shuffle') return 'fas fa-shuffle'
   return 'fas fa-repeat'
 })
@@ -232,55 +232,124 @@ function toggleMute() {
   }
 }
 
-function selectQuality(q: QualityType) {
+async function selectQuality(q: QualityType) {
+  if (q === store.quality) {
+    showQualityMenu.value = false
+    return
+  }
+
   store.setQuality(q)
-  showQualityMenu.value = false
   const picked = qualities.find(x => x.value === q)
   if (picked) {
     store.showNotification(`音质已切换为 ${picked.label} (${picked.description})`, 'success')
   }
   store.saveToStorage()
+  showQualityMenu.value = false
+
+  if (store.currentSong) {
+    const reloaded = await store.reloadCurrentSongWithNewQuality?.()
+    if (reloaded === false) {
+      store.showNotification('切换音质失败，请稍后重试', 'error')
+    }
+  }
+}
+
+const EXPLORE_RADAR_GENRES = [
+  '流行',
+  '摇滚',
+  '古典音乐',
+  '民谣',
+  '电子',
+  '爵士',
+  '说唱',
+  '乡村',
+  '蓝调',
+  'R&B',
+  '金属',
+  '嘻哈',
+  '轻音乐'
+]
+
+const EXPLORE_RADAR_SOURCES = ['netease', 'kuwo']
+
+function pickRandomExploreGenre() {
+  if (!EXPLORE_RADAR_GENRES.length) return '流行'
+  const index = Math.floor(Math.random() * EXPLORE_RADAR_GENRES.length)
+  return EXPLORE_RADAR_GENRES[index]
+}
+
+function pickRandomExploreSource() {
+  if (!EXPLORE_RADAR_SOURCES.length) return 'netease'
+  const index = Math.floor(Math.random() * EXPLORE_RADAR_SOURCES.length)
+  return EXPLORE_RADAR_SOURCES[index]
 }
 
 async function handleExploreRadar() {
   if (isExploring.value) return
   isExploring.value = true
+
   try {
+    const existingCount = store.playlist.length
+    const randomGenre = pickRandomExploreGenre()
+    const source = pickRandomExploreSource()
+
     const signature = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
-    const url = `/proxy?types=playlist&id=3778678&limit=50&offset=0&s=${signature}`
-    const response = await fetch(url, { headers: { 'Accept': 'application/json' } })
+    const url = `/proxy?types=search&source=${source}&name=${encodeURIComponent(randomGenre)}&count=30&pages=1&s=${signature}`
+    const response = await fetch(url, { headers: { Accept: 'application/json' } })
     const data = await response.json()
 
-    const tracks = data && data.playlist && Array.isArray(data.playlist.tracks) ? data.playlist.tracks.slice(0, 50) : []
-    if (tracks.length === 0) {
+    if (!Array.isArray(data) || data.length === 0) {
       store.showNotification('探索雷达：未找到歌曲', 'error')
       return
     }
 
-    const songs = tracks.map((t: any) => ({
-      id: String(t.id),
-      name: t.name,
-      artist: Array.isArray(t.ar) ? t.ar.map((a: any) => a.name).join(' / ') : '未知艺术家',
-      album: t.al?.name ?? '未知专辑',
-      cover: t.al?.picUrl ?? '',
-      url: '',
-      lrc: '',
-      duration: 0,
-      source: 'netease'
-    }))
+    const existingKeys = new Set(
+      (store.playlist || []).map((song: any) => `${song.source || 'netease'}:${song.id}`)
+    )
 
-    const before = store.playlist.length
-    songs.forEach(song => store.addToPlaylist(song))
-    const appended = store.playlist.length - before
-    if (appended > 0) {
-      store.showNotification(`探索雷达：新增${appended}首`, 'success')
-    } else {
+    const candidates = data.map((item: any) => {
+      const id = String(item.id ?? item.url_id ?? Math.random())
+      const key = `${item.source || source}:${id}`
+      return {
+        key,
+        song: {
+          id,
+          name: item.name ?? item.title ?? '未知歌曲',
+          artist: normalizeArtistField(item.artist),
+          album: item.album ?? '未知专辑',
+          cover: typeof item.pic === 'string' ? item.pic : '',
+          picId: item.pic_id || item.picId || item.pic_str || undefined,
+          url: typeof item.url === 'string' ? item.url : '',
+          urlId: item.url_id || item.urlId || undefined,
+          lrc: typeof item.lrc === 'string' ? item.lrc : '',
+          lyricId: item.lyric_id || item.lyricId || item.id || undefined,
+          duration: Number(item.time ?? item.duration ?? 0) || 0,
+          source: item.source || source
+        }
+      }
+    })
+
+    let appended = 0
+    for (const { key, song } of candidates) {
+      if (existingKeys.has(key)) continue
+      existingKeys.add(key)
+      store.addToPlaylist(song as any)
+      appended++
+    }
+
+    if (appended === 0) {
       store.showNotification('探索雷达：本次未找到新的歌曲，当前列表已包含这些曲目', 'info')
+    } else {
+      store.showNotification(`探索雷达：新增${appended}首 ${randomGenre} 歌曲`, 'success')
     }
 
-    if (!store.currentSong && store.playlist.length > 0) {
-      store.playAtIndex(0)
+    const shouldAutoplay = existingCount === 0 && store.playlist.length > 0
+    if (shouldAutoplay) {
+      await store.playAtIndex(0)
     }
+  } catch (error) {
+    console.error('探索雷达错误:', error)
+    store.showNotification('探索雷达获取失败，请稍后重试', 'error')
   } finally {
     isExploring.value = false
   }

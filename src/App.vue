@@ -166,6 +166,15 @@ function onTimeUpdate() {
 function onLoadedMetadata() {
   if (audioRef.value) {
     store.duration = audioRef.value.duration
+
+    // 如果存在待恢复的播放进度（例如切换音质后），在元数据就绪时恢复
+    const pending = store.pendingSeekTime
+    if (typeof pending === 'number' && pending > 0 && isFinite(pending)) {
+      const clamped = Math.min(Math.max(pending, 0), audioRef.value.duration || pending)
+      audioRef.value.currentTime = clamped
+      store.currentTime = clamped
+      store.setPendingSeekTime(null)
+    }
   }
 }
 
