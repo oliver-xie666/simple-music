@@ -43,8 +43,22 @@ export const useThemeStore = defineStore('theme', () => {
       const palette = await extractPalette(coverUrl)
       
       if (palette) {
-        primaryColor.value = palette.accentColor
-        gradients.value = palette.gradients
+        primaryColor.value = palette.accentColor || primaryColor.value
+        
+        // 转换 gradients 结构：从 Array<{color, position}> 转换为 {gradient, colors}
+        if (palette.gradients) {
+          const convertGradient = (stops: Array<{ color: string; position: number }>) => {
+            const gradientString = `linear-gradient(140deg, ${stops.map(stop => `${stop.color} ${stop.position * 100}%`).join(', ')})`
+            const colors = stops.map(stop => stop.color)
+            return { gradient: gradientString, colors }
+          }
+          
+          gradients.value = {
+            light: palette.gradients.light ? convertGradient(palette.gradients.light) : gradients.value.light,
+            dark: palette.gradients.dark ? convertGradient(palette.gradients.dark) : gradients.value.dark
+          }
+        }
+        
         applyTheme()
       }
     } catch (error) {

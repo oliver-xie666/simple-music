@@ -13,8 +13,9 @@ export function generateSignature(): string {
 const apiClient: AxiosInstance = axios.create({
   timeout: 15000,
   headers: {
-    'Content-Type': 'application/json',
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+    'Content-Type': 'application/json'
+    // 注意：在 Web 环境中，浏览器不允许设置 User-Agent 头
+    // 如果需要，可以在请求拦截器中条件设置（仅 Electron 环境）
   }
 })
 

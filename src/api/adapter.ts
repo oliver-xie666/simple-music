@@ -159,18 +159,34 @@ export const extractPalette = async (imageUrl: string): Promise<any> => {
 }
 
 /**
+ * 深度序列化数据，移除不可序列化的属性
+ */
+function serializeData(data: any): any {
+  try {
+    // 使用 JSON 序列化/反序列化来确保数据可以被克隆
+    return JSON.parse(JSON.stringify(data))
+  } catch (error) {
+    console.error('[saveData] 序列化数据失败:', error)
+    throw new Error('数据序列化失败，可能包含不可序列化的对象')
+  }
+}
+
+/**
  * 本地存储（Electron 使用文件系统，Web 使用 localStorage）
  */
 export const saveData = async (key: string, data: any): Promise<void> => {
+  // 先序列化数据，确保可以被克隆
+  const serializedData = serializeData(data)
+  
   if (isElectron() && window.electronAPI?.saveData) {
-    const result = await window.electronAPI.saveData(key, data)
+    const result = await window.electronAPI.saveData(key, serializedData)
     if (!result?.success) {
       throw new Error(result?.error || '保存失败')
     }
   } else {
     // Web 环境使用 localStorage
     try {
-      localStorage.setItem(key, JSON.stringify(data))
+      localStorage.setItem(key, JSON.stringify(serializedData))
     } catch (error) {
       throw new Error('保存到 localStorage 失败')
     }
