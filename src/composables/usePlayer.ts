@@ -26,7 +26,6 @@ export function usePlayer() {
 
     try {
       // 1. 调用 /proxy?types=url 获取音频 URL
-      console.log('[DEBUG] 调用 getSongUrl:', { id: song.id, source: song.source, quality: mapQualityToApiValue(playerStore.quality) })
       const response = await getSongUrl(song.id, song.source, mapQualityToApiValue(playerStore.quality))
       const originalAudioUrl = response?.data?.url
 
@@ -45,12 +44,6 @@ export function usePlayer() {
       )
 
       const primaryAudioUrl = candidateAudioUrls[0] || originalAudioUrl
-
-      if (proxiedAudioUrl && proxiedAudioUrl !== originalAudioUrl) {
-        console.log('[DEBUG] 音频地址已通过代理转换为:', proxiedAudioUrl)
-      } else if (preferredAudioUrl && preferredAudioUrl !== originalAudioUrl) {
-        console.log('[DEBUG] 音频地址由 HTTP 升级为 HTTPS:', preferredAudioUrl)
-      }
 
       // 3. 返回处理后的歌曲对象
       return {
@@ -148,8 +141,6 @@ export function usePlayer() {
     const wasPlaying = playerStore.isPlaying
     const targetTime = audioElement?.currentTime || playerStore.currentTime || 0
 
-    console.log('[DEBUG] 切换音质，保留播放进度:', { targetTime, wasPlaying })
-
     try {
       const targetIndex = playlistStore.currentIndex
       const currentSong = playlistStore.songs[targetIndex]
@@ -165,7 +156,6 @@ export function usePlayer() {
 
       // 2. 准备歌曲（获取新音质的 URL，处理代理等）
       // 这是唯一阻塞的操作，必须等待 URL 获取完成
-      console.log('[DEBUG] 获取新音质的 URL...')
       const playableSong = await prepareSongForPlayback(currentSong)
 
       // 3. 立即更新播放列表和当前歌曲（只更新 URL，不等待封面和歌词）
@@ -183,7 +173,6 @@ export function usePlayer() {
           // 更新封面信息（如果获取成功）
           playlistStore.songs[targetIndex] = hydratedSong
           playerStore.setCurrentSong(hydratedSong, true) // preserveTime = true
-          console.log('[DEBUG] 封面信息已更新')
         })
         .catch((err) => {
           console.warn('[DEBUG] 获取封面失败（不影响播放）:', err)

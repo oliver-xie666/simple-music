@@ -334,7 +334,6 @@ async function handleExploreRadar() {
   isExploring.value = true
 
   try {
-    const existingCount = playlistStore.songs.length
     const randomGenre = pickRandomExploreGenre()
     const source = pickRandomExploreSource()
 
@@ -388,9 +387,16 @@ async function handleExploreRadar() {
       showNotification(`探索雷达：新增${appended}首 ${randomGenre} 歌曲`, 'success')
     }
 
-    const shouldAutoplay = existingCount === 0 && playlistStore.songs.length > 0
-    if (shouldAutoplay) {
-      await playAtIndex(0)
+    // Solara 行为：点击探索雷达后，自动播放本次搜索结果中的第一首歌（并获取歌词与封面）
+    const firstCandidate = candidates[0]
+    if (firstCandidate) {
+      const targetIndex = (playlistStore.songs || []).findIndex(
+        (s: any) => s.id === firstCandidate.song.id && (s.source || 'netease') === (firstCandidate.song.source || 'netease')
+      )
+
+      if (targetIndex >= 0) {
+        await playAtIndex(targetIndex)
+      }
     }
   } catch (error) {
     console.error('探索雷达错误:', error)

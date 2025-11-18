@@ -189,9 +189,7 @@ watch(() => playerStore.currentSong, async (song: any, oldSong: any) => {
     // 获取待恢复的播放进度（在设置新 URL 之前获取，确保准确）
     const pendingTime = playerStore.pendingSeekTime || playerStore.currentTime || 0
     const wasPlaying = playerStore.isPlaying
-    
-    console.log('[DEBUG] 切换音质，保留播放进度:', { pendingTime, wasPlaying })
-    
+ 
     // 保持 store 中的 currentTime，避免 UI 显示为 0
     if (pendingTime > 0) {
       playerStore.setCurrentTime(pendingTime)
@@ -214,7 +212,6 @@ watch(() => playerStore.currentSong, async (song: any, oldSong: any) => {
         audioRef.value.currentTime = clamped
         playerStore.setCurrentTime(clamped)
         playerStore.setPendingSeekTime(null)
-        console.log('[DEBUG] 恢复播放进度:', clamped)
       }
       
       // 如果之前正在播放，立即播放（不等待 canplay）
@@ -287,7 +284,6 @@ function onLoadedMetadata() {
       audioRef.value.currentTime = clamped
       playerStore.setCurrentTime(clamped)
       playerStore.setPendingSeekTime(null)
-      console.log('[DEBUG] 在 onLoadedMetadata 中恢复播放进度:', clamped)
     }
   }
 }
@@ -309,7 +305,6 @@ function onCanPlay() {
       audioRef.value.currentTime = clamped
       playerStore.setCurrentTime(clamped)
       playerStore.setPendingSeekTime(null)
-      console.log('[DEBUG] 在 onCanPlay 中恢复播放进度:', clamped)
     }
     
     // 当音频可以播放时，如果当前是"播放"状态，确保真正开始播放
