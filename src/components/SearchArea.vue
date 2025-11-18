@@ -239,7 +239,7 @@
         <div
           v-if="showDownloadMenu !== null && activeDownloadSong"
           data-download-menu
-          class="fixed rounded-2 border min-w-[170px] z-[200000] shadow-[0_12px_30px_rgba(0,0,0,0.2)]"
+          class="fixed rounded-2 border min-w-[96px] z-[200000] shadow-[0_12px_30px_rgba(0,0,0,0.2)]"
           :class="themeStore.isDark ? 'bg-[#2a2a2a] border-white/20' : 'bg-white border-black/10'"
           :style="{
             top: `${downloadMenuPosition.y}px`,
@@ -247,32 +247,13 @@
           }"
         >
           <button
-            @click.stop="handleDownload(activeDownloadSong, '128')"
-            class="w-full px-4 py-2 text-left text-0.9em cursor-pointer transition-all duration-200 border-none bg-transparent"
+            v-for="q in qualityOptions"
+            :key="q.value"
+            @click.stop="handleDownload(activeDownloadSong, q.value)"
+            class="w-full px-3 py-2 text-left text-0.9em cursor-pointer transition-all duration-200 border-none bg-transparent"
             :class="themeStore.isDark ? 'text-white hover:bg-white/10' : 'text-[#2c3e50] hover:bg-[#1abc9c]/10'"
           >
-            标准音质 (128k)
-          </button>
-          <button
-            @click.stop="handleDownload(activeDownloadSong, '192')"
-            class="w-full px-4 py-2 text-left text-0.9em cursor-pointer transition-all duration-200 border-none bg-transparent"
-            :class="themeStore.isDark ? 'text-white hover:bg-white/10' : 'text-[#2c3e50] hover:bg-[#1abc9c]/10'"
-          >
-            高音质 (192k)
-          </button>
-          <button
-            @click.stop="handleDownload(activeDownloadSong, '320')"
-            class="w-full px-4 py-2 text-left text-0.9em cursor-pointer transition-all duration-200 border-none bg-transparent"
-            :class="themeStore.isDark ? 'text-white hover:bg-white/10' : 'text-[#2c3e50] hover:bg-[#1abc9c]/10'"
-          >
-            超高音质 (320k)
-          </button>
-          <button
-            @click.stop="handleDownload(activeDownloadSong, 'flac')"
-            class="w-full px-4 py-2 text-left text-0.9em cursor-pointer transition-all duration-200 border-none bg-transparent"
-            :class="themeStore.isDark ? 'text-white hover:bg-white/10' : 'text-[#2c3e50] hover:bg-[#1abc9c]/10'"
-          >
-            无损音质 (FLAC)
+            {{ q.label }} ({{ q.description }})
           </button>
         </div>
       </Teleport>
@@ -371,6 +352,7 @@ import { usePlayer } from '../composables/usePlayer'
 import { useNotification } from '../composables/useNotification'
 import type { MusicSource } from '../types'
 import { getSongUrl } from '../api'
+import { QUALITY_OPTIONS } from '../utils/quality-options'
 
 const searchStore = useSearchStore()
 const themeStore = useThemeStore()
@@ -383,6 +365,7 @@ const showMenu = ref(false)
 // const showImportMenu = ref(false)
 const showDownloadMenu = ref<number | null>(null)
 const downloadMenuPosition = ref({ x: 0, y: 0 })
+const qualityOptions = QUALITY_OPTIONS
 const jumpPage = ref(1)
 const searchAreaRef = ref<HTMLElement | null>(null)
 

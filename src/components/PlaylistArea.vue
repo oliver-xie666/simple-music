@@ -79,6 +79,7 @@
       ref="listRef"
       class="flex-1 w-full overflow-y-auto pr-2 -mr-2"
       style="overscroll-behavior: contain;"
+      @scroll="handleListScroll"
     >
       <div class="w-full">
         <div 
@@ -105,7 +106,8 @@
             class="playlist-item-download"
             type="button"
             title="下载这首歌"
-            @click.stop="handleSongDownload(song)"
+            data-download-trigger
+            @click.stop="toggleDownloadMenu(index, $event)"
           >
             <i class="fas fa-download"></i>
           </button>
@@ -121,27 +123,54 @@
         </div>
       </div>
     </div>
+
+    <!-- 下载音质选择菜单（与搜索结果保持一致） -->
+    <Teleport to="body">
+      <div
+        v-if="showDownloadMenu !== null && activeDownloadSong"
+        data-download-menu
+        class="fixed rounded-2 border min-w-[96px] z-[200000] shadow-[0_12px_30px_rgba(0,0,0,0.2)]"
+        :class="themeStore.isDark ? 'bg-[#2a2a2a] border-white/20' : 'bg-white border-black/10'"
+        :style="{
+          top: `${downloadMenuPosition.y}px`,
+          left: `${downloadMenuPosition.x}px`
+        }"
+      >
+        <button
+          v-for="q in qualityOptions"
+          :key="q.value"
+          @click.stop="handleDownload(activeDownloadSong, q.value)"
+          class="w-full px-3 py-2 text-left text-0.9em cursor-pointer transition-all duration-200 border-none bg-transparent"
+          :class="themeStore.isDark ? 'text-white hover:bg-white/10' : 'text-[#2c3e50] hover:bg-[#1abc9c]/10'"
+        >
+          {{ q.label }} ({{ q.description }})
+        </button>
+      </div>
+    </Teleport>
   </div>
 </template>
 
 <script setup lang="ts">
-import { nextTick, onBeforeUpdate, ref, watch } from 'vue'
+import { nextTick, onBeforeUpdate, ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import { usePlaylistStore } from '../stores/playlist'
-import { usePlayerStore } from '../stores/player'
 import { useThemeStore } from '../stores/theme'
 import { usePlayer } from '../composables/usePlayer'
 import { useNotification } from '../composables/useNotification'
 import { normalizeArtistField } from '../utils/song-utils'
 import { getSongUrl } from '../api'
+import { QUALITY_OPTIONS } from '../utils/quality-options'
 
 const playlistStore = usePlaylistStore()
-const playerStore = usePlayerStore()
 const themeStore = useThemeStore()
 const { playAtIndex } = usePlayer()
 const { show: showNotification } = useNotification()
 const listRef = ref<HTMLDivElement | null>(null)
 const songRefs = ref<(HTMLDivElement | null)[]>([])
 const importInputRef = ref<HTMLInputElement | null>(null)
+const showDownloadMenu = ref<number | null>(null)
+const activeDownloadSong = ref<any | null>(null)
+const downloadMenuPosition = ref({ x: 0, y: 0 })
+const qualityOptions = QUALITY_OPTIONS
 
 onBeforeUpdate(() => {
   songRefs.value = []
@@ -219,42 +248,45 @@ const handleRemove = (index: number) => {
   playlistStore.removeSong(index)
 }
 
-const handleSongDownload = async (song: any) => {
+async function handleDownload(song: any, quality: string) {
   if (!song) return
+
+  closeDownloadMenu()
 
   try {
     showNotification('正在准备下载...', 'info')
 
-    const response = await getSongUrl(
-      song.id,
-      song.source,
-      playerStore.quality === 'flac' ? '999' : playerStore.quality
-    )
-    const url = response?.data?.url
-    if (!url) {
+    // 获取下载链接
+    const response = await getSongUrl(song.id, song.source, quality)
+    if (!response || !response.data || !response.data.url) {
       throw new Error('无法获取下载链接')
     }
 
+    const downloadUrl = response.data.url
+
+    // 在 Electron 环境中使用 IPC 下载
     if ((window as any).electronAPI) {
       const filename = `${song.name} - ${normalizeArtistField(song.artist)}`
       const result = await (window as any).electronAPI.downloadMusic({
         id: song.id,
         source: song.source,
-        quality: playerStore.quality === 'flac' ? '999' : playerStore.quality,
+        quality: quality === 'flac' ? '999' : quality,
         filename
       })
 
       if (result.success) {
         showNotification('下载成功', 'success')
       } else if (result.canceled) {
+        // 用户取消了保存对话框
         return
       } else {
         throw new Error(result.error || '下载失败')
       }
     } else {
+      // 浏览器环境：直接下载
       const link = document.createElement('a')
-      link.href = url
-      link.download = `${song.name} - ${normalizeArtistField(song.artist)}.${playerStore.quality === 'flac' ? 'flac' : 'mp3'}`
+      link.href = downloadUrl
+      link.download = `${song.name} - ${normalizeArtistField(song.artist)}.${quality === 'flac' ? 'flac' : 'mp3'}`
       link.target = '_blank'
       document.body.appendChild(link)
       link.click()
@@ -265,6 +297,43 @@ const handleSongDownload = async (song: any) => {
     console.error('下载失败:', error)
     showNotification(error?.message || '下载失败，请稍后重试', 'error')
   }
+}
+
+function toggleDownloadMenu(index: number, event: MouseEvent) {
+  if (showDownloadMenu.value === index) {
+    closeDownloadMenu()
+    return
+  }
+
+  const button = event.currentTarget as HTMLElement | null
+  if (button) {
+    const rect = button.getBoundingClientRect()
+    const menuWidth = 180
+    const padding = 12
+    const viewportWidth =
+      typeof window !== 'undefined' ? window.innerWidth : menuWidth + padding * 2
+    const maxLeft = Math.max(padding, viewportWidth - menuWidth - padding)
+    const clampedLeft = Math.min(Math.max(rect.left, padding), maxLeft)
+
+    downloadMenuPosition.value = {
+      x: clampedLeft,
+      y: rect.bottom + 6
+    }
+  }
+
+  showDownloadMenu.value = index
+  activeDownloadSong.value = playlistStore.songs[index] || null
+}
+
+function closeDownloadMenu() {
+  if (showDownloadMenu.value !== null) {
+    showDownloadMenu.value = null
+    activeDownloadSong.value = null
+  }
+}
+
+function handleListScroll() {
+  closeDownloadMenu()
 }
 
 const scrollToCurrentSong = () => {
@@ -292,6 +361,18 @@ const scrollToCurrentSong = () => {
   }
 }
 
+function handleClickOutside(e: MouseEvent) {
+  const target = e.target as HTMLElement
+
+  if (
+    showDownloadMenu.value !== null &&
+    !target.closest('[data-download-menu]') &&
+    !target.closest('[data-download-trigger]')
+  ) {
+    closeDownloadMenu()
+  }
+}
+
 watch(
   () => [playlistStore.currentIndex, playlistStore.songs.length],
   async () => {
@@ -300,4 +381,25 @@ watch(
   },
   { immediate: true }
 )
+
+watch(
+  () => playlistStore.songs.length,
+  () => {
+    closeDownloadMenu()
+  }
+)
+
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside)
+  if (typeof window !== 'undefined') {
+    window.addEventListener('resize', closeDownloadMenu)
+  }
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', handleClickOutside)
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('resize', closeDownloadMenu)
+  }
+})
 </script>

@@ -177,6 +177,8 @@ import { searchMusic } from '../api'
 import { normalizeArtistField } from '../utils/song-utils'
 import type { QualityType, PlayMode } from '../types'
 
+import { QUALITY_OPTIONS } from '../utils/quality-options'
+
 const playerStore = usePlayerStore()
 const playlistStore = usePlaylistStore()
 const themeStore = useThemeStore()
@@ -189,12 +191,7 @@ const isSwitchingQuality = ref(false)
 const isExploring = ref(false)
 const lastVolume = ref(0.8)
 
-const qualities = [
-  { value: '128' as QualityType, label: '标准音质', description: '128kbps' },
-  { value: '192' as QualityType, label: '较高音质', description: '192kbps' },
-  { value: '320' as QualityType, label: '极高音质', description: '320kbps' },
-  { value: 'flac' as QualityType, label: '无损音质', description: 'FLAC' }
-]
+const qualities = QUALITY_OPTIONS
 
 const qualityText = computed(() => 
   qualities.find(q => q.value === playerStore.quality)?.label || '极高音质'
