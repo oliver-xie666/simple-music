@@ -77,7 +77,8 @@ export const useFavoritesStore = defineStore('favorites', () => {
 
   // 保存到本地存储
   async function saveToStorage() {
-    await window.electronAPI.saveData('favorites', {
+    const { saveData } = await import('../api')
+    await saveData('favorites', {
       songs: songs.value,
     })
   }
@@ -85,7 +86,8 @@ export const useFavoritesStore = defineStore('favorites', () => {
   // 从本地存储加载
   async function loadFromStorage() {
     try {
-      const data = await window.electronAPI.loadData('favorites')
+      const { loadData } = await import('../api')
+      const data = await loadData('favorites')
       if (data && data.songs) {
         songs.value = data.songs
       }

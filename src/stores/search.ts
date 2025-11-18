@@ -2,9 +2,18 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { Song, MusicSource } from '../types'
 import { searchMusic as searchMusicApi } from '@/api'
+import { parseSearchResult } from '../utils/search-utils'
 
 export const useSearchStore = defineStore('search', () => {
-  // ... (state properties remain the same)
+  // State
+  const query = ref('')
+  const results = ref<Song[]>([])
+  const currentSource = ref<MusicSource>('netease')
+  const isLoading = ref(false)
+  const currentPage = ref(1)
+  const limit = ref(20)
+  const totalPages = ref(0)
+  const selectedIndices = ref<Set<number>>(new Set())
 
   // Actions
   async function search(keyword?: string, page = 1) {
@@ -22,15 +31,19 @@ export const useSearchStore = defineStore('search', () => {
         searchKeyword,
         currentSource.value,
         page,
-        100 // Default count is now 100
+        limit.value
       )
 
-      if (response &&response.data) {
-        const songs = parseSongs(response.data, currentSource.value)
-        results.value = songs
+      if (response?.data) {
+        const data = response.data
+        if (Array.isArray(data)) {
+          results.value = data.map((item: any) => parseSearchResult(item, currentSource.value))
+        } else {
+          results.value = []
+        }
         
         if (response.data.total) {
-          totalPages.value = Math.ceil(response.data.total / 100)
+          totalPages.value = Math.ceil(response.data.total / limit.value)
         }
       }
     } catch (error) {
@@ -41,41 +54,35 @@ export const useSearchStore = defineStore('search', () => {
     }
   }
 
-  // ... (other actions remain the same)
+  function setSource(source: MusicSource) {
+    currentSource.value = source
+  }
+
+  function setLimit(newLimit: number) {
+    limit.value = newLimit
+  }
+
+  function clearResults() {
+    results.value = []
+    query.value = ''
+    currentPage.value = 1
+    selectedIndices.value.clear()
+  }
 
   return {
-    // ...
+    // State
+    query,
+    results,
+    currentSource,
+    isLoading,
+    currentPage,
+    limit,
+    totalPages,
+    selectedIndices,
+    // Actions
+    search,
+    setSource,
+    setLimit,
+    clearResults,
   }
 })
-
-// 解析 API 返回的歌曲数据
-function parseSongs(data: any, source: MusicSource): Song[] {
-  try {
-    // 根据实际 API 返回格式解析
-    if (Array.isArray(data)) {
-      return data.map((item: any) => parseSong(item, source))
-    }
-    
-    if (data.songs && Array.isArray(data.songs)) {
-      return data.songs.map((item: any) => parseSong(item, source))
-    }
-
-    return []
-  } catch (error) {
-    console.error('解析歌曲数据失败:', error)
-    return []
-  }
-}
-
-function parseSong(item: any, source: MusicSource): Song {
-  return {
-    id: String(item.id || item.songid || item.song_id),
-    name: item.name || item.songname || item.song_name || '未知歌曲',
-    artist: item.artist || item.singer || item.ar?.[0]?.name || '未知艺术家',
-    album: item.album || item.albumname || item.al?.name || '未知专辑',
-    cover: item.pic || item.cover || item.al?.picUrl || '',
-    duration: parseInt(item.duration || item.time || item.dt || 0) / 1000,
-    source,
-  }
-}
-

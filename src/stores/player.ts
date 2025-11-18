@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { Song, PlayMode, QualityType } from '../types'
+import { formatTime } from '../utils/song-utils'
 
 export const usePlayerStore = defineStore('player', () => {
   // State
@@ -12,6 +13,7 @@ export const usePlayerStore = defineStore('player', () => {
   const playMode = ref<PlayMode>('list-loop')
   const quality = ref<QualityType>('320')
   const isLoading = ref(false)
+  const pendingSeekTime = ref<number | null>(null)
 
   // Getters
   const progress = computed(() => {
@@ -19,13 +21,8 @@ export const usePlayerStore = defineStore('player', () => {
     return (currentTime.value / duration.value) * 100
   })
 
-  const formattedCurrentTime = computed(() => {
-    return formatTime(currentTime.value)
-  })
-
-  const formattedDuration = computed(() => {
-    return formatTime(duration.value)
-  })
+  const formattedCurrentTime = computed(() => formatTime(currentTime.value))
+  const formattedDuration = computed(() => formatTime(duration.value))
 
   // Actions
   function play() {
@@ -69,20 +66,25 @@ export const usePlayerStore = defineStore('player', () => {
     isLoading.value = loading
   }
 
+  function setPendingSeekTime(time: number | null) {
+    pendingSeekTime.value = time
+  }
+
   // 保存到本地存储
   async function saveToStorage() {
-    const data = {
+    const { saveData } = await import('../api')
+    await saveData('player-settings', {
       volume: volume.value,
       playMode: playMode.value,
       quality: quality.value,
-    }
-    await window.electronAPI.saveData('player-settings', data)
+    })
   }
 
   // 从本地存储加载
   async function loadFromStorage() {
     try {
-      const data = await window.electronAPI.loadData('player-settings')
+      const { loadData } = await import('../api')
+      const data = await loadData('player-settings')
       if (data) {
         volume.value = data.volume ?? 0.8
         playMode.value = data.playMode ?? 'list-loop'
@@ -103,6 +105,7 @@ export const usePlayerStore = defineStore('player', () => {
     playMode,
     quality,
     isLoading,
+    pendingSeekTime,
     // Getters
     progress,
     formattedCurrentTime,
@@ -118,17 +121,10 @@ export const usePlayerStore = defineStore('player', () => {
     setPlayMode,
     setQuality,
     setLoading,
+    setPendingSeekTime,
     saveToStorage,
     loadFromStorage,
   }
 })
 
-// 工具函数：格式化时间
-function formatTime(seconds: number): string {
-  if (!seconds || !isFinite(seconds)) return '00:00'
-  
-  const mins = Math.floor(seconds / 60)
-  const secs = Math.floor(seconds % 60)
-  return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
-}
 

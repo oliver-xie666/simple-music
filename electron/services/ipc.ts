@@ -1,5 +1,5 @@
 import { ipcMain, dialog } from 'electron'
-import { getSongUrl, getLyric, getPicUrl } from './api'
+import { getSongUrl } from './api'
 import { extractPaletteFromImage } from './palette'
 import { saveToStore, loadFromStore, removeFromStore } from './storage'
 import axios from 'axios'
@@ -9,43 +9,18 @@ import { pipeline } from 'stream'
 
 const streamPipeline = promisify(pipeline)
 
+/**
+ * 设置 IPC 处理器
+ * 
+ * 注意：普通 API（搜索、获取 URL、歌词、封面等）现在都使用前端 API（直接 HTTP 请求）
+ * 这里只保留差异化处理需要的 IPC 处理器：
+ * - download-music: 下载音乐（需要文件对话框选择保存位置）
+ * - extract-palette: 提取封面颜色（可选，前端已实现）
+ * - save-data/load-data/remove-data: 本地存储（Electron 使用文件系统）
+ * - import-json/export-json: 导入导出（需要文件对话框）
+ * - show-open-dialog/show-save-dialog: 文件对话框
+ */
 export function setupIpcHandlers() {
-  // 获取音乐 URL
-  ipcMain.handle('fetch-music-url', async (_event, params) => {
-    try {
-      const { id, source = 'netease', quality = '320' } = params
-      console.log('IPC 获取URL:', { id, source, quality })
-      const result = await getSongUrl(id, source, quality)
-      return { success: true, data: result }
-    } catch (error: any) {
-      console.error('IPC 获取URL失败:', error)
-      return { success: false, error: error.message }
-    }
-  })
-
-  // 获取歌词
-  ipcMain.handle('fetch-lyrics', async (_event, params) => {
-    try {
-      const { id, source = 'netease' } = params
-      const result = await getLyric(id, source)
-      return { success: true, data: result }
-    } catch (error: any) {
-      console.error('IPC 获取歌词失败:', error)
-      return { success: false, error: error.message }
-    }
-  })
-
-  // 获取封面URL
-  ipcMain.handle('get-pic-url', async (_event, params) => {
-    try {
-      const { picId, source = 'netease' } = params
-      const url = getPicUrl(picId, source)
-      return { success: true, url }
-    } catch (error: any) {
-      return { success: false, error: error.message }
-    }
-  })
-
   // 下载音乐
   ipcMain.handle('download-music', async (_event, params) => {
     try {

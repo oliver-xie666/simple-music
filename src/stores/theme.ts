@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
-import { ref, computed, watch } from 'vue'
-import type { PaletteResponse } from '../../electron/services/palette'
+import { ref, computed } from 'vue'
+import { extractPalette } from '../api'
+import { saveData, loadData } from '../api'
 
 export const useThemeStore = defineStore('theme', () => {
   // State
@@ -17,11 +18,9 @@ export const useThemeStore = defineStore('theme', () => {
     }
   })
 
-  // Getters
-  const currentGradient = computed(() => {
-    return isDark.value ? gradients.value.dark.gradient : gradients.value.light.gradient
-  })
+  const currentGradient = ref('linear-gradient(140deg, #e0f5e9 0%, #c6f0e0 35%, #a3e4d7 100%)')
 
+  // Getters
   const currentColors = computed(() => {
     return isDark.value ? gradients.value.dark.colors : gradients.value.light.colors
   })
@@ -41,7 +40,7 @@ export const useThemeStore = defineStore('theme', () => {
 
   async function setThemeFromCover(coverUrl: string) {
     try {
-      const palette: PaletteResponse = await window.electronAPI.extractPalette(coverUrl)
+      const palette = await extractPalette(coverUrl)
       
       if (palette) {
         primaryColor.value = palette.accentColor
@@ -54,26 +53,31 @@ export const useThemeStore = defineStore('theme', () => {
   }
 
   function applyTheme() {
-    const root = document.documentElement
+    // const root = document.documentElement
     
-    // 应用主题色
-    root.style.setProperty('--primary-color', primaryColor.value)
+    // // 应用主题色
+    // root.style.setProperty('--primary-color', primaryColor.value)
     
-    // 应用渐变
-    const gradient = isDark.value ? gradients.value.dark : gradients.value.light
-    root.style.setProperty('--gradient-bg', gradient.gradient)
+    // // 应用渐变
+    // const gradient = isDark.value ? gradients.value.dark : gradients.value.light
+    // root.style.setProperty('--gradient-bg', gradient.gradient)
     
-    // 更新 body 类名
+    // // 更新 body 类名
+    // if (isDark.value) {
+    //   document.body.classList.add('dark-theme')
+    // } else {
+    //   document.body.classList.remove('dark-theme')
+    // }
     if (isDark.value) {
-      document.body.classList.add('dark-theme')
+      currentGradient.value = 'linear-gradient(135deg, #0b1d1b 0%, #0f2f2c 45%, #123c36 100%)'
     } else {
-      document.body.classList.remove('dark-theme')
+      currentGradient.value = 'linear-gradient(140deg, #e0f5e9 0%, #c6f0e0 35%, #a3e4d7 100%)'
     }
   }
 
   // 保存到本地存储
   async function saveToStorage() {
-    await window.electronAPI.saveData('theme', {
+    await saveData('theme', {
       isDark: isDark.value,
       primaryColor: primaryColor.value,
       gradients: gradients.value,
@@ -83,7 +87,7 @@ export const useThemeStore = defineStore('theme', () => {
   // 从本地存储加载
   async function loadFromStorage() {
     try {
-      const data = await window.electronAPI.loadData('theme')
+      const data = await loadData('theme')
       if (data) {
         isDark.value = data.isDark ?? false
         primaryColor.value = data.primaryColor ?? '#3498db'

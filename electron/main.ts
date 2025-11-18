@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, globalShortcut } from 'electron'
 import { join } from 'path'
 import { setupIpcHandlers } from './services/ipc'
 
@@ -40,6 +40,29 @@ function createWindow() {
   } else {
     win.loadFile(join(process.env.DIST!, 'index.html'))
   }
+
+  // 注册 F12 快捷键打开/关闭开发者工具（生产环境也支持）
+  globalShortcut.register('F12', () => {
+    if (win) {
+      if (win.webContents.isDevToolsOpened()) {
+        win.webContents.closeDevTools()
+      } else {
+        win.webContents.openDevTools()
+      }
+    }
+  })
+
+  // 注册 Ctrl+Shift+I 快捷键（Windows/Linux）或 Cmd+Option+I（Mac）
+  const devToolsShortcut = process.platform === 'darwin' ? 'Command+Option+I' : 'Control+Shift+I'
+  globalShortcut.register(devToolsShortcut, () => {
+    if (win) {
+      if (win.webContents.isDevToolsOpened()) {
+        win.webContents.closeDevTools()
+      } else {
+        win.webContents.openDevTools()
+      }
+    }
+  })
 }
 
 // 应用准备就绪
@@ -58,9 +81,17 @@ app.whenReady().then(() => {
 
 // 所有窗口关闭
 app.on('window-all-closed', () => {
+  // 注销所有快捷键
+  globalShortcut.unregisterAll()
+  
   if (process.platform !== 'darwin') {
     app.quit()
     win = null
   }
+})
+
+// 应用退出前注销所有快捷键
+app.on('will-quit', () => {
+  globalShortcut.unregisterAll()
 })
 

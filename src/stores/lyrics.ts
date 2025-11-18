@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { LyricLine } from '../types'
+import type { LyricLine, Song } from '../types'
+import { parseLrc, resolveLyricText } from '../utils/lyric-utils'
 
 export const useLyricsStore = defineStore('lyrics', () => {
   // State
@@ -19,19 +20,23 @@ export const useLyricsStore = defineStore('lyrics', () => {
   const isEmpty = computed(() => lyrics.value.length === 0)
 
   // Actions
-  async function loadLyrics(songId: string, source: string) {
+  async function loadLyrics(song: Song | null) {
+    if (!song) {
+      clearLyrics()
+      return
+    }
+
     try {
-      const response = await window.electronAPI.fetchLyrics({ id: songId, source })
-      
-      if (response && response.data) {
-        const lyricText = response.data.lyric || response.data.lrc?.lyric || ''
-        lyrics.value = parseLrc(lyricText)
-      } else {
-        lyrics.value = []
+      const lyricText = await resolveLyricText(song)
+      if (!lyricText.trim()) {
+        clearLyrics()
+        return
       }
+      lyrics.value = parseLrc(lyricText)
+      currentLine.value = -1
     } catch (error) {
       console.error('加载歌词失败:', error)
-      lyrics.value = []
+      clearLyrics()
     }
   }
 
@@ -40,15 +45,13 @@ export const useLyricsStore = defineStore('lyrics', () => {
       currentLine.value = -1
       return
     }
-
-    // 找到当前时间对应的歌词行
+    
     for (let i = lyrics.value.length - 1; i >= 0; i--) {
       if (currentTime >= lyrics.value[i].time) {
         currentLine.value = i
         return
       }
     }
-
     currentLine.value = -1
   }
 
@@ -82,39 +85,4 @@ export const useLyricsStore = defineStore('lyrics', () => {
   }
 })
 
-// 解析 LRC 格式歌词
-function parseLrc(lrcText: string): LyricLine[] {
-  if (!lrcText) return []
-
-  const lines = lrcText.split('\n')
-  const lyrics: LyricLine[] = []
-
-  // LRC 时间标签正则：[mm:ss.xx] 或 [mm:ss.xxx]
-  const timeRegex = /\[(\d{2}):(\d{2})\.(\d{2,3})\]/g
-
-  for (const line of lines) {
-    const matches = Array.from(line.matchAll(timeRegex))
-    if (matches.length === 0) continue
-
-    // 提取歌词文本（去掉所有时间标签）
-    const text = line.replace(timeRegex, '').trim()
-    if (!text) continue
-
-    // 一行可能有多个时间标签
-    for (const match of matches) {
-      const minutes = parseInt(match[1])
-      const seconds = parseInt(match[2])
-      const milliseconds = parseInt(match[3].padEnd(3, '0'))
-      
-      const time = minutes * 60 + seconds + milliseconds / 1000
-
-      lyrics.push({ time, text })
-    }
-  }
-
-  // 按时间排序
-  lyrics.sort((a, b) => a.time - b.time)
-
-  return lyrics
-}
 

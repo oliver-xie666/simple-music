@@ -164,7 +164,8 @@ export const usePlaylistStore = defineStore('playlist', () => {
 
   // 保存到本地存储
   async function saveToStorage() {
-    await window.electronAPI.saveData('playlist', {
+    const { saveData } = await import('../api')
+    await saveData('playlist', {
       songs: songs.value,
       currentIndex: currentIndex.value,
     })
@@ -173,7 +174,8 @@ export const usePlaylistStore = defineStore('playlist', () => {
   // 从本地存储加载
   async function loadFromStorage() {
     try {
-      const data = await window.electronAPI.loadData('playlist')
+      const { loadData } = await import('../api')
+      const data = await loadData('playlist')
       if (data) {
         songs.value = data.songs || []
         currentIndex.value = data.currentIndex ?? -1
