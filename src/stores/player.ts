@@ -37,9 +37,12 @@ export const usePlayerStore = defineStore('player', () => {
     isPlaying.value = !isPlaying.value
   }
 
-  function setCurrentSong(song: Song | null) {
+  function setCurrentSong(song: Song | null, preserveTime: boolean = false) {
     currentSong.value = song
-    currentTime.value = 0
+    // 只有切换歌曲时才重置进度，切换音质时保留进度
+    if (!preserveTime) {
+      currentTime.value = 0
+    }
   }
 
   function setCurrentTime(time: number) {

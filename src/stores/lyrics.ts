@@ -60,6 +60,19 @@ export const useLyricsStore = defineStore('lyrics', () => {
     currentLine.value = -1
   }
 
+  function setCurrentLine(index: number) {
+    if (lyrics.value.length === 0) {
+      currentLine.value = -1
+      return
+    }
+    if (typeof index !== 'number' || Number.isNaN(index)) {
+      currentLine.value = -1
+      return
+    }
+    const clamped = Math.max(-1, Math.min(index, lyrics.value.length - 1))
+    currentLine.value = clamped
+  }
+
   function toggleScrollLock() {
     isScrollLocked.value = !isScrollLocked.value
   }
@@ -80,6 +93,7 @@ export const useLyricsStore = defineStore('lyrics', () => {
     loadLyrics,
     updateCurrentLine,
     clearLyrics,
+    setCurrentLine,
     toggleScrollLock,
     setScrollLock,
   }

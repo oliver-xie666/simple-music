@@ -75,16 +75,26 @@ export function getFirstNonEmptyString(...values: any[]): string {
  * 确保歌曲有封面（如果缺失则获取）
  */
 export async function ensureSongArtwork(song: Song): Promise<Song> {
+  // 如果已经有封面，直接返回（不需要再调用接口）
   if (song.cover && song.cover.trim().length > 0) {
+    console.log('[DEBUG] 歌曲已有封面，跳过 getPicUrl 调用:', { id: song.id, cover: song.cover.substring(0, 50) + '...' })
     return song
   }
-  if (!song.picId) return song
+  
+  // 如果没有 picId，无法获取封面
+  if (!song.picId) {
+    console.log('[DEBUG] 歌曲没有 picId，无法获取封面:', { id: song.id })
+    return song
+  }
 
   try {
+    console.log('[DEBUG] 调用 getPicUrl 获取封面:', { picId: song.picId, source: song.source })
     const coverUrl = await getPicUrl(song.picId, song.source)
     if (!coverUrl) {
+      console.log('[DEBUG] getPicUrl 返回空，封面获取失败')
       return song
     }
+    console.log('[DEBUG] 封面获取成功:', coverUrl.substring(0, 50) + '...')
     return { ...song, cover: coverUrl }
   } catch (error) {
     console.error('封面获取失败:', error)

@@ -66,6 +66,7 @@ export async function resolveLyricText(song: Song): Promise<string> {
   const lyricId = song.lyricId || song.id
   if (!lyricId) return ''
 
+  console.log('[DEBUG] 调用 getLyric 获取歌词:', { lyricId, source: song.source })
   const response = await getLyric(lyricId, song.source)
   const data = response?.data
 

@@ -87,17 +87,24 @@
             :title="'音质: ' + qualityText"
             :class="[
               showQualityMenu ? 'border-[#1abc9c] text-[#1abc9c]' : themeStore.isDark ? 'text-[#ecf0f1] border-white/15 hover:border-[#1abc9c] hover:text-[#1abc9c]' : 'text-[#2c3e50] border-black/10 hover:border-[#1abc9c] hover:text-[#1abc9c]',
-              themeStore.isDark ? 'bg-[#2c2c2c]/50' : 'bg-white/50'
+              themeStore.isDark ? 'bg-[#2c2c2c]/50' : 'bg-white/50',
+              isSwitchingQuality ? 'cursor-not-allowed opacity-70' : ''
             ]"
+            :disabled="isSwitchingQuality"
             style="font-size: 0.9em; box-shadow: none;"
           >
-            <span>{{ qualityText }}</span>
+            <i 
+              v-if="isSwitchingQuality" 
+              class="fas fa-spinner fa-spin text-sm mr-2"
+            ></i>
+            <span>{{ isSwitchingQuality ? '音质切换中...' : qualityText }}</span>
           </button>
           
           <div 
             v-show="showQualityMenu"
             class="absolute bottom-[calc(100%+10px)] right-0 rounded-3 border min-w-[180px] overflow-hidden z-[100000] transition-all duration-200 shadow-[0_12px_30px_rgba(0,0,0,0.2)]"
             :class="themeStore.isDark ? 'bg-[#1c1c1c] border-white/15' : 'bg-white border-black/10'"
+            :style="{ pointerEvents: isSwitchingQuality ? 'none' : 'auto', opacity: isSwitchingQuality ? 0.6 : 1 }"
           >
             <div 
               v-for="q in qualities"
@@ -178,6 +185,7 @@ const { show: showNotification } = useNotification()
 const { saveToStorage } = useStorage()
 
 const showQualityMenu = ref(false)
+const isSwitchingQuality = ref(false)
 const isExploring = ref(false)
 const lastVolume = ref(0.8)
 
@@ -246,24 +254,48 @@ function toggleMute() {
 }
 
 async function selectQuality(q: QualityType) {
+  if (isSwitchingQuality.value) return
   if (q === playerStore.quality) {
     showQualityMenu.value = false
     return
   }
 
-  playerStore.setQuality(q)
   const picked = qualities.find(x => x.value === q)
-  if (picked) {
-    showNotification(`音质已切换为 ${picked.label} (${picked.description})`, 'success')
-  }
-  saveToStorage()
-  showQualityMenu.value = false
 
-  if (playerStore.currentSong) {
-    const reloaded = await reloadCurrentSongWithNewQuality()
-    if (reloaded === false) {
-      showNotification('切换音质失败，请稍后重试', 'error')
+  if (!playerStore.currentSong) {
+    playerStore.setQuality(q)
+    saveToStorage()
+    showQualityMenu.value = false
+    if (picked) {
+      showNotification(`音质已切换为 ${picked.label} (${picked.description})`, 'success')
     }
+    return
+  }
+
+  const previousQuality = playerStore.quality
+
+  try {
+    isSwitchingQuality.value = true
+    showQualityMenu.value = false
+
+    playerStore.setQuality(q)
+    saveToStorage()
+
+    const reloaded = await reloadCurrentSongWithNewQuality()
+
+    if (!reloaded) {
+      throw new Error('reload failed')
+    }
+
+    if (picked) {
+      showNotification(`音质切换成功：${picked.label} (${picked.description})`, 'success')
+    }
+  } catch (error) {
+    playerStore.setQuality(previousQuality)
+    saveToStorage()
+    showNotification('切换音质失败，请稍后重试', 'error')
+  } finally {
+    isSwitchingQuality.value = false
   }
 }
 

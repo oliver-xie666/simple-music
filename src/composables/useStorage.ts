@@ -2,6 +2,7 @@ import { usePlayerStore } from '../stores/player'
 import { usePlaylistStore } from '../stores/playlist'
 import { useFavoritesStore } from '../stores/favorites'
 import { useThemeStore } from '../stores/theme'
+import { useLyricsStore } from '../stores/lyrics'
 import { saveData, loadData } from '../api'
 
 export function useStorage() {
@@ -9,6 +10,8 @@ export function useStorage() {
   const playlistStore = usePlaylistStore()
   const favoritesStore = useFavoritesStore()
   const themeStore = useThemeStore()
+  const lyricsStore = useLyricsStore()
+  let playbackSnapshotTimer: ReturnType<typeof setTimeout> | null = null
 
   /**
    * 保存所有状态到本地存储
@@ -22,7 +25,16 @@ export function useStorage() {
         volume: playerStore.volume,
         playMode: playerStore.playMode,
         quality: playerStore.quality,
-        isDark: themeStore.isDark
+        isDark: themeStore.isDark,
+        lastPlayback: {
+          currentTime: playerStore.currentTime,
+          duration: playerStore.duration,
+          isPlaying: playerStore.isPlaying,
+          lyricLine: lyricsStore.currentLine,
+          songId: playerStore.currentSong?.id ?? null,
+          songSource: playerStore.currentSong?.source ?? null,
+          timestamp: Date.now()
+        }
       })
     } catch (error) {
       console.error('保存数据失败:', error)
@@ -44,8 +56,43 @@ export function useStorage() {
         playerStore.setQuality(data.quality || '320')
         themeStore.setTheme(data.isDark ?? false)
         
+        const playback = data.lastPlayback || {}
+        const savedTime = typeof playback.currentTime === 'number' && playback.currentTime >= 0
+          ? playback.currentTime
+          : null
+        const savedLyricLine = typeof playback.lyricLine === 'number'
+          ? playback.lyricLine
+          : null
+        const shouldResumePlaying = playback.isPlaying === true
+        const savedDuration = typeof playback.duration === 'number' && playback.duration > 0
+          ? playback.duration
+          : null
+
+        if (typeof savedTime === 'number') {
+          playerStore.setCurrentTime(savedTime)
+          playerStore.setPendingSeekTime(savedTime)
+        }
+        if (savedDuration !== null) {
+          playerStore.setDuration(savedDuration)
+        }
+        if (shouldResumePlaying) {
+          playerStore.play()
+        } else {
+          playerStore.pause()
+        }
+
         if (playlistStore.currentIndex >= 0 && playlistStore.currentIndex < playlistStore.songs.length) {
-          playerStore.setCurrentSong(playlistStore.songs[playlistStore.currentIndex])
+          const currentSong = playlistStore.songs[playlistStore.currentIndex]
+          const preserveTime = typeof savedTime === 'number'
+          playerStore.setCurrentSong(currentSong, preserveTime)
+
+          // 确保封面和歌词均已加载
+          await lyricsStore.loadLyrics(currentSong)
+          if (typeof savedLyricLine === 'number') {
+            lyricsStore.setCurrentLine(savedLyricLine)
+          } else if (typeof savedTime === 'number') {
+            lyricsStore.updateCurrentLine(savedTime)
+          }
         }
       }
     } catch (error) {
@@ -53,9 +100,18 @@ export function useStorage() {
     }
   }
 
+  function schedulePlaybackSnapshot() {
+    if (playbackSnapshotTimer) return
+    playbackSnapshotTimer = setTimeout(async () => {
+      playbackSnapshotTimer = null
+      await saveToStorage()
+    }, 1000)
+  }
+
   return {
     saveToStorage,
     loadFromStorage,
+    schedulePlaybackSnapshot,
   }
 }
 

@@ -95,6 +95,7 @@
     <!-- Audio Element -->
     <audio 
       ref="audioRef" 
+      preload="auto"
       @timeupdate="onTimeUpdate"
       @loadedmetadata="onLoadedMetadata"
       @ended="onEnded"
@@ -106,7 +107,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import { usePlayerStore } from './stores/player'
 import { useThemeStore } from './stores/theme'
 import { useLyricsStore } from './stores/lyrics'
@@ -124,33 +125,127 @@ const themeStore = useThemeStore()
 const lyricsStore = useLyricsStore()
 const { playNext, hydrateCurrentSongArtwork } = usePlayer()
 const { show: showNotification, notification } = useNotification()
-const { loadFromStorage } = useStorage()
+const { loadFromStorage, saveToStorage, schedulePlaybackSnapshot } = useStorage()
 
 const audioRef = ref<HTMLAudioElement | null>(null)
+// 标记是否正在切换音质，用于阻止进度更新导致的闪烁
+const isQualitySwitching = ref(false)
+
+/**
+ * 等待音频元数据加载完成（参考 Solara 的 waitForAudioReady）
+ * 只等待 loadedmetadata 事件，不等待 canplay，以实现立即播放
+ */
+function waitForAudioReady(player: HTMLAudioElement): Promise<void> {
+  if (!player) return Promise.resolve()
+  // 如果元数据已经加载，立即返回
+  if (player.readyState >= 1) { // HAVE_METADATA
+    return Promise.resolve()
+  }
+  // 否则等待 loadedmetadata 事件
+  return new Promise((resolve, reject) => {
+    const cleanup = () => {
+      player.removeEventListener('loadedmetadata', onLoaded)
+      player.removeEventListener('error', onError)
+    }
+    const onLoaded = () => {
+      cleanup()
+      resolve()
+    }
+    const onError = () => {
+      cleanup()
+      reject(new Error('音频加载失败'))
+    }
+    player.addEventListener('loadedmetadata', onLoaded, { once: true })
+    player.addEventListener('error', onError, { once: true })
+  })
+}
 
 // 监听播放状态
 watch(() => playerStore.isPlaying, (playing: boolean) => {
-  if (!audioRef.value) return
-  if (playing) {
-    audioRef.value.play().catch((err: any) => {
-      console.error('播放失败:', err)
-      playerStore.pause()
-    })
-  } else {
-    audioRef.value.pause()
+  if (audioRef.value) {
+    if (playing) {
+      audioRef.value.play().catch((err: any) => {
+        console.error('播放失败:', err)
+        playerStore.pause()
+      })
+    } else {
+      audioRef.value.pause()
+    }
   }
+  schedulePlaybackSnapshot()
 })
 
 // 监听当前歌曲变化：切换音频源，并确保补全封面信息（如果缺失）
-watch(() => playerStore.currentSong, (song: any) => {
+watch(() => playerStore.currentSong, async (song: any, oldSong: any) => {
   if (!audioRef.value || !song) return
-  audioRef.value.src = song.url
-  audioRef.value.load()
-  // 切歌时重置进度
-  playerStore.setCurrentTime(0)
-  playerStore.setDuration(0)
-  // 尝试为当前歌曲补全封面（如果没有封面但有 picId，会触发封面接口）
-  hydrateCurrentSongArtwork()
+  
+  // 如果是切换音质（同一首歌，只是 URL 不同），不重置进度
+  const isQualitySwitch = oldSong && song.id === oldSong.id && song.url !== oldSong.url
+  
+  if (isQualitySwitch) {
+    // 标记正在切换音质，阻止 onTimeUpdate 更新进度（避免闪烁）
+    isQualitySwitching.value = true
+    
+    // 获取待恢复的播放进度（在设置新 URL 之前获取，确保准确）
+    const pendingTime = playerStore.pendingSeekTime || playerStore.currentTime || 0
+    const wasPlaying = playerStore.isPlaying
+    
+    console.log('[DEBUG] 切换音质，保留播放进度:', { pendingTime, wasPlaying })
+    
+    // 保持 store 中的 currentTime，避免 UI 显示为 0
+    if (pendingTime > 0) {
+      playerStore.setCurrentTime(pendingTime)
+    }
+    
+    // 先暂停当前播放（参考 Solara：释放资源，加快切换）
+    audioRef.value.pause()
+    
+    // 设置新的音频源
+    audioRef.value.src = song.url
+    audioRef.value.load()
+    
+    try {
+      // 等待元数据加载完成（参考 Solara：只等待 loadedmetadata，不等待 canplay）
+      await waitForAudioReady(audioRef.value)
+      
+      // 元数据加载完成后，立即设置进度并播放
+      if (pendingTime > 0 && audioRef.value) {
+        const clamped = Math.min(Math.max(pendingTime, 0), audioRef.value.duration || pendingTime)
+        audioRef.value.currentTime = clamped
+        playerStore.setCurrentTime(clamped)
+        playerStore.setPendingSeekTime(null)
+        console.log('[DEBUG] 恢复播放进度:', clamped)
+      }
+      
+      // 如果之前正在播放，立即播放（不等待 canplay）
+      if (wasPlaying && audioRef.value) {
+        const playPromise = audioRef.value.play()
+        if (playPromise !== undefined) {
+          playPromise.catch((err: any) => {
+            console.error('[DEBUG] 播放失败:', err)
+            playerStore.pause()
+          })
+        }
+      }
+      
+      isQualitySwitching.value = false
+    } catch (error) {
+      console.error('[DEBUG] 等待音频元数据加载失败:', error)
+      isQualitySwitching.value = false
+      playerStore.pause()
+      showNotification('切换音质失败，请稍后重试', 'error')
+    }
+  } else {
+    // 切换歌曲时正常重置
+    playerStore.setCurrentTime(0)
+    playerStore.setDuration(0)
+    audioRef.value.src = song.url
+    audioRef.value.load()
+    
+    // 尝试为当前歌曲补全封面（如果没有封面但有 picId，会触发封面接口）
+    // 注意：切换音质时不需要调用，因为 reloadCurrentSongWithNewQuality 已经在后台处理了
+    hydrateCurrentSongArtwork()
+  }
 })
 
 // 监听音量变化
@@ -164,13 +259,18 @@ watch(() => playerStore.volume, (vol: number) => {
 window.addEventListener('seek-audio', ((e: CustomEvent) => {
   if (audioRef.value && playerStore.duration) {
     audioRef.value.currentTime = e.detail * playerStore.duration
+    schedulePlaybackSnapshot()
   }
 }) as EventListener)
 
 function onTimeUpdate() {
   if (audioRef.value) {
-    playerStore.setCurrentTime(audioRef.value.currentTime)
-    lyricsStore.updateCurrentLine(audioRef.value.currentTime)
+    // 如果正在切换音质，不更新进度和当前歌词行（避免先跳到 0 秒再跳回来的闪烁）
+    if (!isQualitySwitching.value) {
+      playerStore.setCurrentTime(audioRef.value.currentTime)
+      lyricsStore.updateCurrentLine(audioRef.value.currentTime)
+    }
+    schedulePlaybackSnapshot()
   }
 }
 
@@ -179,12 +279,15 @@ function onLoadedMetadata() {
     playerStore.setDuration(audioRef.value.duration)
 
     // 如果存在待恢复的播放进度（例如切换音质后），在元数据就绪时恢复
+    // 注意：切换音质的逻辑已经在 watch 中通过 waitForAudioReady 处理了
+    // 这里只处理非切换音质的情况
     const pending = playerStore.pendingSeekTime
-    if (typeof pending === 'number' && pending > 0 && isFinite(pending)) {
+    if (!isQualitySwitching.value && typeof pending === 'number' && pending > 0 && isFinite(pending)) {
       const clamped = Math.min(Math.max(pending, 0), audioRef.value.duration || pending)
       audioRef.value.currentTime = clamped
       playerStore.setCurrentTime(clamped)
       playerStore.setPendingSeekTime(null)
+      console.log('[DEBUG] 在 onLoadedMetadata 中恢复播放进度:', clamped)
     }
   }
 }
@@ -195,12 +298,27 @@ function onEnded() {
 
 function onCanPlay() {
   playerStore.setLoading(false)
-  // 当音频可以播放时，如果当前是"播放"状态，确保真正开始播放
-  if (audioRef.value && playerStore.isPlaying) {
-    audioRef.value.play().catch((err: any) => {
-      console.error('播放失败(onCanPlay):', err)
-      playerStore.pause()
-    })
+  
+  // 切换音质的逻辑已经在 watch 中通过 waitForAudioReady 处理了
+  // 这里只处理非切换音质的情况
+  if (!isQualitySwitching.value) {
+    // 如果存在待恢复的播放进度，在音频可以播放时恢复
+    const pending = playerStore.pendingSeekTime
+    if (audioRef.value && typeof pending === 'number' && pending > 0 && isFinite(pending)) {
+      const clamped = Math.min(Math.max(pending, 0), audioRef.value.duration || pending)
+      audioRef.value.currentTime = clamped
+      playerStore.setCurrentTime(clamped)
+      playerStore.setPendingSeekTime(null)
+      console.log('[DEBUG] 在 onCanPlay 中恢复播放进度:', clamped)
+    }
+    
+    // 当音频可以播放时，如果当前是"播放"状态，确保真正开始播放
+    if (audioRef.value && playerStore.isPlaying) {
+      audioRef.value.play().catch((err: any) => {
+        console.error('播放失败(onCanPlay):', err)
+        playerStore.pause()
+      })
+    }
   }
 }
 
@@ -215,6 +333,14 @@ loadFromStorage()
 if (audioRef.value) {
   audioRef.value.volume = playerStore.volume
 }
+
+onMounted(() => {
+  window.addEventListener('beforeunload', saveToStorage)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('beforeunload', saveToStorage)
+})
 </script>
 
 <style>
