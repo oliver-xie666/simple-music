@@ -241,8 +241,11 @@ function cyclePlayMode() {
 
 function emitSeekEvent(value: number) {
   const duration = playerStore.duration || 0
-  const ratio = duration > 0 ? Math.min(Math.max(value / duration, 0), 1) : 0
-  window.dispatchEvent(new CustomEvent('seek-audio', { detail: ratio }))
+  const normalizedTime = duration > 0
+    ? Math.min(Math.max(value, 0), duration)
+    : Math.max(value, 0)
+  const ratio = duration > 0 ? normalizedTime / duration : undefined
+  window.dispatchEvent(new CustomEvent('seek-audio', { detail: { time: normalizedTime, ratio } }))
 }
 
 function attachSeekListeners() {

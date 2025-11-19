@@ -25,8 +25,9 @@
         <div 
           v-for="(line, index) in lyricsStore.lyrics" 
           :key="index"
-          :ref="el => { if (index === lyricsStore.currentLine) currentLyricRef = el }"
-          class="px-1.25 py-2 mb-1.25 transition-all duration-300 rounded-2"
+          :ref="el => setCurrentLyricRef(el, index)"
+          class="px-1.25 py-2 mb-1.25 transition-all duration-300 rounded-2 cursor-pointer select-none"
+          @click="handleLyricClick(line, index)"
           :class="[
             index === lyricsStore.currentLine 
               ? 'text-[#1abc9c] font-medium bg-[#1abc9c]/20'
@@ -45,13 +46,44 @@
 
 <script setup lang="ts">
 import { ref, watch, nextTick } from 'vue'
+import type { ComponentPublicInstance } from 'vue'
 import { useLyricsStore } from '../stores/lyrics'
 import { useThemeStore } from '../stores/theme'
+import { usePlayerStore } from '../stores/player'
+import type { LyricLine } from '../types'
 
 const lyricsStore = useLyricsStore()
 const themeStore = useThemeStore()
+const playerStore = usePlayerStore()
 const lyricsContainer = ref<HTMLElement | null>(null)
-const currentLyricRef = ref<any>(null)
+const currentLyricRef = ref<HTMLElement | null>(null)
+
+function setCurrentLyricRef(
+  el: Element | ComponentPublicInstance | null,
+  index: number
+) {
+  if (index !== lyricsStore.currentLine) {
+    return
+  }
+  currentLyricRef.value = el instanceof HTMLElement ? el : null
+}
+
+function handleLyricClick(line: LyricLine, index: number) {
+  if (typeof window === 'undefined') return
+  if (!line || typeof line.time !== 'number' || Number.isNaN(line.time)) return
+
+  const duration = playerStore.duration || 0
+  const normalizedTime = Math.max(0, line.time)
+  const clampedTime = duration > 0 ? Math.min(normalizedTime, duration) : normalizedTime
+  const detail = {
+    time: clampedTime,
+    ratio: duration > 0 ? clampedTime / duration : undefined
+  }
+
+  window.dispatchEvent(new CustomEvent('seek-audio', { detail }))
+  playerStore.setCurrentTime(clampedTime)
+  lyricsStore.setCurrentLine(index)
+}
 
 // 监听当前歌词行变化，自动滚动
 watch(() => lyricsStore.currentLine, () => {
@@ -72,3 +104,4 @@ watch(() => lyricsStore.currentLine, () => {
 })
 </script>
 
+ 

@@ -269,13 +269,46 @@ watch(() => playerStore.volume, (vol: number) => {
   }
 })
 
-// 监听进度搜索
-window.addEventListener('seek-audio', ((e: CustomEvent) => {
-  if (audioRef.value && playerStore.duration) {
-    audioRef.value.currentTime = e.detail * playerStore.duration
-    schedulePlaybackSnapshot()
+type SeekEventDetail = number | { time?: number; ratio?: number }
+
+function resolveSeekTime(detail: SeekEventDetail, duration: number): number | null {
+  if (typeof detail === 'number') {
+    if (duration <= 0) return null
+    return detail * duration
   }
-}) as EventListener)
+  if (!detail || typeof detail !== 'object') return null
+  if (typeof detail.time === 'number' && !Number.isNaN(detail.time)) {
+    return detail.time
+  }
+  if (typeof detail.ratio === 'number' && duration > 0) {
+    return detail.ratio * duration
+  }
+  return null
+}
+
+const handleExternalSeek = (event: Event) => {
+  if (!audioRef.value) return
+  const customEvent = event as CustomEvent<SeekEventDetail>
+  const audio = audioRef.value
+  const mediaDuration = (audio.duration && Number.isFinite(audio.duration) ? audio.duration : playerStore.duration) || 0
+  const targetTime = resolveSeekTime(customEvent.detail, mediaDuration)
+  if (targetTime === null) return
+
+  const clamped = mediaDuration > 0
+    ? Math.min(Math.max(targetTime, 0), mediaDuration)
+    : Math.max(targetTime, 0)
+
+  if (audio.readyState >= 1 && Number.isFinite(audio.duration) && audio.duration > 0) {
+    audio.currentTime = clamped
+    playerStore.setPendingSeekTime(null)
+  } else {
+    playerStore.setPendingSeekTime(clamped)
+  }
+
+  playerStore.setCurrentTime(clamped)
+  lyricsStore.updateCurrentLine(clamped)
+  schedulePlaybackSnapshot()
+}
 
 function onTimeUpdate() {
   if (audioRef.value) {
@@ -348,10 +381,12 @@ if (audioRef.value) {
 
 onMounted(() => {
   window.addEventListener('beforeunload', saveToStorage)
+  window.addEventListener('seek-audio', handleExternalSeek)
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('beforeunload', saveToStorage)
+  window.removeEventListener('seek-audio', handleExternalSeek)
 })
 </script>
 
