@@ -233,9 +233,26 @@ watch(() => playerStore.currentSong, async (song: any, oldSong: any) => {
       showNotification('切换音质失败，请稍后重试', 'error')
     }
   } else {
-    // 切换歌曲时正常重置
-    playerStore.setCurrentTime(0)
-    playerStore.setDuration(0)
+    // 切换歌曲时，优先保留待恢复的播放进度（例如从本地恢复播放）
+    const pendingResumeTime = typeof playerStore.pendingSeekTime === 'number' && isFinite(playerStore.pendingSeekTime)
+      ? playerStore.pendingSeekTime
+      : null
+    const estimatedDuration = typeof song.duration === 'number' && song.duration > 0
+      ? song.duration
+      : null
+
+    if (pendingResumeTime !== null) {
+      playerStore.setCurrentTime(pendingResumeTime)
+    } else {
+      playerStore.setCurrentTime(0)
+    }
+
+    if (estimatedDuration !== null) {
+      playerStore.setDuration(estimatedDuration)
+    } else if (pendingResumeTime === null) {
+      playerStore.setDuration(0)
+    }
+
     audioRef.value.src = song.url
     audioRef.value.load()
     

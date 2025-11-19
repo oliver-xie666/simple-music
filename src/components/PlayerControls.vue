@@ -59,10 +59,16 @@
       <input 
         type="range" 
         :value="playerStore.currentTime" 
-        @input="seekAudio"
         :max="playerStore.duration || 0"
         step="0.1"
         class="flex-1 h-2 rounded-full cursor-pointer transition-all duration-200"
+        @mousedown="handleSeekStart"
+        @touchstart.passive="handleSeekStart"
+        @input="handleSeekInput"
+        @change="handleSeekChange"
+        @mouseup="handleSeekRelease"
+        @touchend="handleSeekRelease"
+        @touchcancel="handleSeekRelease"
         :style="{
           background: `linear-gradient(to right, #1abc9c 0%, #1abc9c ${playerStore.progress}%, rgba(255, 255, 255, 1) ${playerStore.progress}%, rgba(255, 255, 255, 1) 100%)`
         }"
@@ -166,7 +172,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onBeforeUnmount } from 'vue'
 import { usePlayerStore } from '../stores/player'
 import { usePlaylistStore } from '../stores/playlist'
 import { useThemeStore } from '../stores/theme'
@@ -192,6 +198,9 @@ const isExploring = ref(false)
 const lastVolume = ref(0.8)
 
 const qualities = QUALITY_OPTIONS
+const isSeeking = ref(false)
+const seekPreviewValue = ref<number | null>(null)
+const wasPlayingBeforeSeek = ref(false)
 
 const qualityText = computed(() => 
   qualities.find(q => q.value === playerStore.quality)?.label || '极高音质'
@@ -230,9 +239,83 @@ function cyclePlayMode() {
   saveToStorage()
 }
 
-function seekAudio(e: Event) {
+function emitSeekEvent(value: number) {
+  const duration = playerStore.duration || 0
+  const ratio = duration > 0 ? Math.min(Math.max(value / duration, 0), 1) : 0
+  window.dispatchEvent(new CustomEvent('seek-audio', { detail: ratio }))
+}
+
+function attachSeekListeners() {
+  if (typeof window === 'undefined') return
+  window.addEventListener('mouseup', handleSeekRelease)
+  window.addEventListener('touchend', handleSeekRelease)
+  window.addEventListener('touchcancel', handleSeekRelease)
+}
+
+function detachSeekListeners() {
+  if (typeof window === 'undefined') return
+  window.removeEventListener('mouseup', handleSeekRelease)
+  window.removeEventListener('touchend', handleSeekRelease)
+  window.removeEventListener('touchcancel', handleSeekRelease)
+}
+
+function handleSeekStart() {
+  if (isSeeking.value) return
+  isSeeking.value = true
+  seekPreviewValue.value = playerStore.currentTime
+  wasPlayingBeforeSeek.value = playerStore.isPlaying
+  if (playerStore.isPlaying) {
+    playerStore.pause()
+  }
+  attachSeekListeners()
+}
+
+function handleSeekInput(e: Event) {
   const value = parseFloat((e.target as HTMLInputElement).value)
-  window.dispatchEvent(new CustomEvent('seek-audio', { detail: value / (playerStore.duration || 1) }))
+  if (Number.isNaN(value)) return
+  seekPreviewValue.value = value
+  playerStore.setCurrentTime(value)
+  if (!isSeeking.value) {
+    emitSeekEvent(value)
+  }
+}
+
+function finishSeek(finalValue?: number) {
+  const value = typeof finalValue === 'number' && !Number.isNaN(finalValue)
+    ? finalValue
+    : seekPreviewValue.value ?? 0
+
+  playerStore.setCurrentTime(value)
+  emitSeekEvent(value)
+
+  if (wasPlayingBeforeSeek.value) {
+    playerStore.play()
+  }
+
+  wasPlayingBeforeSeek.value = false
+  seekPreviewValue.value = null
+  isSeeking.value = false
+  detachSeekListeners()
+}
+
+function handleSeekRelease(e?: Event) {
+  if (!isSeeking.value) return
+  const target = e?.target as HTMLInputElement | undefined
+  const value = target ? parseFloat(target.value) : seekPreviewValue.value ?? undefined
+  finishSeek(value)
+}
+
+function handleSeekChange(e: Event) {
+  const value = parseFloat((e.target as HTMLInputElement).value)
+  if (Number.isNaN(value)) return
+
+  playerStore.setCurrentTime(value)
+
+  if (isSeeking.value) {
+    finishSeek(value)
+  } else {
+    emitSeekEvent(value)
+  }
 }
 
 function updateVolume(e: Event) {
@@ -402,4 +485,8 @@ async function handleExploreRadar() {
     isExploring.value = false
   }
 }
+
+onBeforeUnmount(() => {
+  detachSeekListeners()
+})
 </script>
