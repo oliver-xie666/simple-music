@@ -10,6 +10,7 @@ export const useSearchStore = defineStore('search', () => {
   const results = ref<Song[]>([])
   const currentSource = ref<MusicSource>('netease')
   const isLoading = ref(false)
+  const isDropdownVisible = ref(false)
   const currentPage = ref(1)
   const limit = ref(20)
   const totalPages = ref(0)
@@ -25,6 +26,7 @@ export const useSearchStore = defineStore('search', () => {
     query.value = searchKeyword
     currentPage.value = page
     isLoading.value = true
+    isDropdownVisible.value = true
 
     try {
       const response = await searchMusicApi(
@@ -67,6 +69,11 @@ export const useSearchStore = defineStore('search', () => {
     query.value = ''
     currentPage.value = 1
     selectedIndices.value.clear()
+    isDropdownVisible.value = false
+  }
+
+  function setDropdownVisible(visible: boolean) {
+    isDropdownVisible.value = visible
   }
 
   return {
@@ -75,6 +82,7 @@ export const useSearchStore = defineStore('search', () => {
     results,
     currentSource,
     isLoading,
+    isDropdownVisible,
     currentPage,
     limit,
     totalPages,
@@ -84,5 +92,6 @@ export const useSearchStore = defineStore('search', () => {
     setSource,
     setLimit,
     clearResults,
+    setDropdownVisible,
   }
 })

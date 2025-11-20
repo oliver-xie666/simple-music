@@ -19,32 +19,50 @@ export function useSearch() {
       showNotification('请输入搜索关键字', 'error')
       return
     }
+    if (searchStore.isLoading) {
+      return
+    }
+
     if (!append) {
       searchStore.query = keyword
       searchStore.currentPage = page
       searchStore.selectedIndices.clear()
+      searchStore.results = []
     }
+
+    searchStore.isDropdownVisible = true
+    searchStore.isLoading = true
 
     try {
       const response = await searchMusic(keyword, searchStore.currentSource, page, searchStore.limit)
-      
       const data = response?.data
-      
+
       if (Array.isArray(data)) {
         const newResults = data.map((item: any) => parseSearchResult(item, searchStore.currentSource))
-        
-        if (append) {
-          searchStore.results = [...searchStore.results, ...newResults]
-        } else {
-          searchStore.results = newResults
-        }
+        searchStore.results = append ? [...searchStore.results, ...newResults] : newResults
       } else {
         console.error('[搜索] 搜索结果格式错误:', data)
         showNotification('搜索结果格式错误', 'error')
+        if (!append) {
+          searchStore.results = []
+        }
+      }
+
+      const total = response?.data?.total
+      if (typeof total === 'number') {
+        const pages = Math.ceil(total / searchStore.limit)
+        searchStore.totalPages = Number.isFinite(pages) && pages > 0 ? pages : page
+      } else if (!append) {
+        searchStore.totalPages = page
       }
     } catch (error: any) {
       console.error('[搜索] 搜索失败:', error)
       showNotification(`搜索失败: ${error?.message || '请稍后重试'}`, 'error')
+      if (!append) {
+        searchStore.results = []
+      }
+    } finally {
+      searchStore.isLoading = false
     }
   }
 

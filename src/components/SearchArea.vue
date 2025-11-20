@@ -65,7 +65,7 @@
 
     <!-- 搜索结果 -->
     <div 
-      v-if="searchStore.results.length > 0" 
+      v-if="showResultsDropdown" 
       class="absolute left-0 right-0 top-[calc(100%+12px)] z-[80]"
     >
       <div 
@@ -82,10 +82,21 @@
         <!-- 左侧：播放全部 -->
         <button
           @click="handlePlayAll"
-          class="flex items-center gap-2 px-4 py-2 rounded-full border-none cursor-pointer transition-all duration-200 text-white bg-[#1abc9c] hover:bg-[#12836d] shadow-[0_6px_16px_rgba(26,188,156,0.3)]"
+          :disabled="playAllLoading"
+          class="flex items-center gap-2 px-4 py-2 rounded-full border-none transition-all duration-200 text-white bg-[#1abc9c] shadow-[0_6px_16px_rgba(26,188,156,0.3)]"
+          :class="playAllLoading ? 'opacity-60 cursor-wait' : 'cursor-pointer hover:bg-[#12836d]'"
         >
-          <i class="fas fa-play text-0.9em"></i>
-          <span class="text-0.9em font-semibold">播放全部</span>
+          <i 
+            v-if="playAllLoading" 
+            class="fas fa-spinner fa-spin text-0.9em"
+          ></i>
+          <i 
+            v-else 
+            class="fas fa-play text-0.9em"
+          ></i>
+          <span class="text-0.9em font-semibold">
+            {{ playAllLoading ? '正在播放...' : '播放全部' }}
+          </span>
         </button>
 
         <!-- 右侧：导入已选 -->
@@ -141,98 +152,133 @@
         </div> -->
       </div>
 
-      <!-- 搜索结果列表 -->
-      <div 
-        class="flex flex-col gap-2 py-3 pr-2 -mr-2 flex-1 min-h-0 overflow-y-auto max-h-[35vh]" 
-        style="overscroll-behavior: contain;"
-        @scroll.passive="handleResultsScroll"
-      >
-          <div 
-            v-for="(song, index) in searchStore.results" 
-            :key="index"
-            @click="toggleSelection(index, $event)"
-            class="flex items-center gap-3 px-4 py-3 rounded-3 cursor-pointer transition-all duration-300 border relative"
-            :class="[
-              themeStore.isDark 
-                ? 'bg-white/10 border-white/20 hover:bg-white/15' 
-                : 'bg-white/70 border-white/60 hover:bg-[#1abc9c]/10',
-              searchStore.selectedIndices.has(index) 
-                ? themeStore.isDark
-                  ? 'border-[#34d1b6] bg-[#1abc9c]/15'
-                  : 'border-[#1abc9c] bg-[#1abc9c]/12'
-                : ''
-            ]"
-            :style="getSearchResultStyle(index)"
+      <!-- 搜索结果列表 / 骨架屏 -->
+      <div>
+        <div 
+          v-if="searchStore.isLoading && searchStore.results.length === 0"
+          class="flex flex-col gap-2 py-3 pr-2 -mr-2 flex-1 min-h-0 max-h-[35vh] overflow-hidden"
+          style="overscroll-behavior: contain;"
+        >
+          <div
+            v-for="i in skeletonItemCount"
+            :key="`skeleton-${i}`"
+            class="flex items-center gap-3 px-4 py-3 rounded-3 border"
+            :class="themeStore.isDark ? 'border-white/10 bg-white/5' : 'border-black/5 bg-white/60'"
           >
-            <!-- 左侧：圆形复选框 -->
-            <button
-              @click.stop="toggleSelection(index, $event)"
-              class="w-5 h-5 flex-shrink-0 rounded-full border flex items-center justify-center transition-all duration-200"
-              :class="[
-                searchStore.selectedIndices.has(index)
-                  ? 'bg-[#1abc9c] border-[#1abc9c] text-white'
-                  : themeStore.isDark
-                    ? 'border-white/30 bg-transparent'
-                    : 'border-black/20 bg-transparent'
-              ]"
-              title="选择"
-            >
-              <i v-if="searchStore.selectedIndices.has(index)" class="fas fa-check text-0.7em"></i>
-            </button>
-
-            <!-- 中间：歌曲信息 -->
-            <div class="flex-1 min-w-0">
-              <div 
-                class="font-semibold text-[15px] mb-1 whitespace-nowrap overflow-hidden text-ellipsis transition-colors duration-200"
-                :class="searchStore.selectedIndices.has(index)
-                  ? (themeStore.isDark ? 'text-[#34d1b6]' : 'text-[#12836d]')
-                  : (themeStore.isDark ? 'text-white' : 'text-[#2c3e50]')"
-              >
-                {{ song.name }}
-              </div>
-              <div 
-                class="text-[13px] whitespace-nowrap overflow-hidden text-ellipsis flex items-center gap-2 transition-colors duration-200"
-                :class="searchStore.selectedIndices.has(index)
-                  ? (themeStore.isDark ? 'text-[#9ff3e2]' : 'text-[#1abc9c]')
-                  : (themeStore.isDark ? 'text-white/70' : 'text-[#7f8c8d]')"
-              >
-                <span class="truncate">{{ formatArtist(song.artist) }}</span>
-                <span 
-                  class="flex-shrink-0"
-                  :class="themeStore.isDark ? 'text-white/30' : 'text-[#c0c8cc]'"
-                >
-                  -
-                </span>
-                <span class="truncate">{{ formatAlbum(song.album) }}</span>
-              </div>
+            <div class="w-5 h-5 rounded-full" :class="skeletonBaseClass"></div>
+            <div class="flex-1 flex flex-col gap-2">
+              <div class="h-3.5 rounded" :class="skeletonBaseClass"></div>
+              <div class="h-3 rounded w-2/3" :class="skeletonBaseClass"></div>
             </div>
-
-            <!-- 右侧：操作按钮 -->
-            <div class="flex gap-2 ml-3.75 flex-shrink-0">
-              <!-- 播放按钮 -->
-              <button 
-                @click.stop="playSong(song)"
-                class="px-3 py-1.5 rounded-2 border flex justify-center items-center gap-1.5 text-[13px] transition-all duration-200 text-white bg-[#1abc9c] border-[#1abc9c]/45 hover:bg-[#12836d] shadow-[0_6px_16px_rgba(26,188,156,0.3)]"
-                title="播放"
-              >
-                <i class="fas fa-play text-0.85em"></i>
-                <span>播放</span>
-              </button>
-
-              <!-- 下载按钮 -->
-              <div>
-                <button 
-                  data-download-trigger
-                  @click.stop="toggleDownloadMenu(index, $event)"
-                  class="w-8 h-8 p-0 rounded-2 border flex justify-center items-center text-[14px] transition-all duration-200 text-white bg-[#2ecc71] border-[#2ecc71]/55 hover:bg-[#27ae60] shadow-[0_6px_16px_rgba(46,204,113,0.28)]"
-                  title="下载"
-                >
-                  <i class="fas fa-download"></i>
-                </button>
-              </div>
+            <div class="flex gap-2">
+              <div class="w-16 h-8 rounded" :class="skeletonBaseClass"></div>
+              <div class="w-8 h-8 rounded" :class="skeletonBaseClass"></div>
             </div>
           </div>
         </div>
+
+        <div 
+          v-else
+          class="flex flex-col gap-2 py-3 pr-2 -mr-2 flex-1 min-h-0 overflow-y-auto max-h-[35vh]" 
+          style="overscroll-behavior: contain;"
+          @scroll.passive="handleResultsScroll"
+        >
+            <div 
+              v-for="(song, index) in searchStore.results" 
+              :key="index"
+              @click="toggleSelection(index, $event)"
+              class="flex items-center gap-3 px-4 py-3 rounded-3 cursor-pointer transition-all duration-300 border relative"
+              :class="[
+                themeStore.isDark 
+                  ? 'bg-white/10 border-white/20 hover:bg-white/15' 
+                  : 'bg-white/70 border-white/60 hover:bg-[#1abc9c]/10',
+                searchStore.selectedIndices.has(index) 
+                  ? themeStore.isDark
+                    ? 'border-[#34d1b6] bg-[#1abc9c]/15'
+                    : 'border-[#1abc9c] bg-[#1abc9c]/12'
+                  : ''
+              ]"
+              :style="getSearchResultStyle(index)"
+            >
+              <!-- 左侧：圆形复选框 -->
+              <button
+                @click.stop="toggleSelection(index, $event)"
+                class="w-5 h-5 flex-shrink-0 rounded-full border flex items-center justify-center transition-all duration-200"
+                :class="[
+                  searchStore.selectedIndices.has(index)
+                    ? 'bg-[#1abc9c] border-[#1abc9c] text-white'
+                    : themeStore.isDark
+                      ? 'border-white/30 bg-transparent'
+                      : 'border-black/20 bg-transparent'
+                ]"
+                title="选择"
+              >
+                <i v-if="searchStore.selectedIndices.has(index)" class="fas fa-check text-0.7em"></i>
+              </button>
+
+              <!-- 中间：歌曲信息 -->
+              <div class="flex-1 min-w-0">
+                <div 
+                  class="font-semibold text-[15px] mb-1 whitespace-nowrap overflow-hidden text-ellipsis transition-colors duration-200"
+                  :class="searchStore.selectedIndices.has(index)
+                    ? (themeStore.isDark ? 'text-[#34d1b6]' : 'text-[#12836d]')
+                    : (themeStore.isDark ? 'text-white' : 'text-[#2c3e50]')"
+                >
+                  {{ song.name }}
+                </div>
+                <div 
+                  class="text-[13px] whitespace-nowrap overflow-hidden text-ellipsis flex items-center gap-2 transition-colors duration-200"
+                  :class="searchStore.selectedIndices.has(index)
+                    ? (themeStore.isDark ? 'text-[#9ff3e2]' : 'text-[#1abc9c]')
+                    : (themeStore.isDark ? 'text-white/70' : 'text-[#7f8c8d]')"
+                >
+                  <span class="truncate">{{ formatArtist(song.artist) }}</span>
+                  <span 
+                    class="flex-shrink-0"
+                    :class="themeStore.isDark ? 'text-white/30' : 'text-[#c0c8cc]'"
+                  >
+                    -
+                  </span>
+                  <span class="truncate">{{ formatAlbum(song.album) }}</span>
+                </div>
+              </div>
+
+              <!-- 右侧：操作按钮 -->
+              <div class="flex gap-2 ml-3.75 flex-shrink-0">
+                <!-- 播放按钮 -->
+                <button 
+                  @click.stop="playSong(song)"
+                  :disabled="isSongPlaying(song)"
+                  class="px-3 py-1.5 rounded-2 border flex justify-center items-center gap-1.5 text-[13px] transition-all duration-200 text-white bg-[#1abc9c] border-[#1abc9c]/45 shadow-[0_6px_16px_rgba(26,188,156,0.3)]"
+                  :class="isSongPlaying(song) ? 'opacity-60 cursor-wait' : 'hover:bg-[#12836d]'"
+                  title="播放"
+                >
+                  <i 
+                    v-if="isSongPlaying(song)" 
+                    class="fas fa-spinner fa-spin text-0.85em"
+                  ></i>
+                  <i 
+                    v-else 
+                    class="fas fa-play text-0.85em"
+                  ></i>
+                  <span>{{ isSongPlaying(song) ? '播放中...' : '播放' }}</span>
+                </button>
+
+                <!-- 下载按钮 -->
+                <div>
+                  <button 
+                    data-download-trigger
+                    @click.stop="toggleDownloadMenu(index, $event)"
+                    class="w-8 h-8 p-0 rounded-2 border flex justify-center items-center text-[14px] transition-all duration-200 text-white bg-[#2ecc71] border-[#2ecc71]/55 hover:bg-[#27ae60] shadow-[0_6px_16px_rgba(46,204,113,0.28)]"
+                    title="下载"
+                  >
+                    <i class="fas fa-download"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+      </div>
       </div>
 
       <Teleport to="body">
@@ -368,6 +414,11 @@ const downloadMenuPosition = ref({ x: 0, y: 0 })
 const qualityOptions = QUALITY_OPTIONS
 const jumpPage = ref(1)
 const searchAreaRef = ref<HTMLElement | null>(null)
+const skeletonItemCount = 6
+const playAllLoading = ref(false)
+const playingSongKey = ref<string | null>(null)
+const showResultsDropdown = computed(() => searchStore.isDropdownVisible && (searchStore.isLoading || searchStore.results.length > 0))
+const skeletonBaseClass = computed(() => themeStore.isDark ? 'skeleton-block skeleton-dark' : 'skeleton-block skeleton-light')
 
 const activeDownloadSong = computed(() => {
   if (showDownloadMenu.value === null) return null
@@ -408,16 +459,47 @@ async function handleSearch() {
   await performSearch(searchQuery.value, 1, false)
 }
 
+function hideResultsDropdown() {
+  if (typeof (searchStore as any).setDropdownVisible === 'function') {
+    searchStore.setDropdownVisible(false)
+  } else {
+    searchStore.isDropdownVisible = false
+  }
+}
+
+function getSongKey(song: any) {
+  return `${song.id ?? ''}-${song.source ?? ''}`
+}
+
+function isSongPlaying(song: any) {
+  return playingSongKey.value === getSongKey(song)
+}
+
 async function playSong(song: any) {
+  if (isSongPlaying(song)) return
+  playingSongKey.value = getSongKey(song)
+  hideResultsDropdown()
+
   const { usePlaylistStore } = await import('../stores/playlist')
   const playlistStore = usePlaylistStore()
   playlistStore.addSong(song)
   const idx = playlistStore.songs.findIndex(s => s.id === song.id && s.source === song.source)
-  if (idx !== -1) await playAtIndex(idx)
+  try {
+    if (idx !== -1) await playAtIndex(idx)
+  } finally {
+    playingSongKey.value = null
+  }
 }
 
 async function handlePlayAll() {
-  await playAll(playAtIndex)
+  if (playAllLoading.value) return
+  playAllLoading.value = true
+  hideResultsDropdown()
+  try {
+    await playAll(playAtIndex)
+  } finally {
+    playAllLoading.value = false
+  }
 }
 
 function toggleSelection(index: number, e: MouseEvent) {
@@ -451,6 +533,7 @@ function getSearchResultStyle(index: number) {
 function handleImportToPlaylist() {
   importSelectedSearchResults('playlist')
   // showImportMenu.value = false
+  hideResultsDropdown()
 }
 
 // function handleImportToFavorites() {
@@ -647,3 +730,35 @@ onBeforeUnmount(() => {
   }
 })
 </script>
+
+<style scoped>
+.skeleton-block {
+  position: relative;
+  overflow: hidden;
+}
+
+.skeleton-block::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  animation: skeleton-loading 1.5s ease-in-out infinite;
+}
+
+.skeleton-light {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.skeleton-dark {
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+@keyframes skeleton-loading {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+</style>
