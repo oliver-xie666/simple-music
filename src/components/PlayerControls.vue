@@ -108,25 +108,16 @@
           
           <div 
             v-show="showQualityMenu"
-            class="absolute bottom-[calc(100%+10px)] right-0 rounded-3 border min-w-[180px] overflow-hidden z-[100000] transition-all duration-200 shadow-[0_12px_30px_rgba(0,0,0,0.2)]"
+            class="absolute bottom-[calc(100%+10px)] right-0 rounded-3 border min-w-[190px] overflow-hidden z-[100000] transition-all duration-200 shadow-[0_12px_30px_rgba(0,0,0,0.2)] p-2"
             :class="themeStore.isDark ? 'bg-[#1c1c1c] border-white/15' : 'bg-white border-black/10'"
             :style="{ pointerEvents: isSwitchingQuality ? 'none' : 'auto', opacity: isSwitchingQuality ? 0.6 : 1 }"
           >
-            <div 
-              v-for="q in qualities"
-              :key="q.value"
-              @click="selectQuality(q.value)"
-              class="flex justify-between items-center gap-2 px-3.5 py-2.5 text-0.9em cursor-pointer transition-all duration-200"
-              :class="[
-                playerStore.quality === q.value 
-                  ? 'bg-[#1abc9c] text-white' 
-                  : themeStore.isDark 
-                    ? 'text-[#ecf0f1] hover:bg-[#1abc9c] hover:text-white' 
-                    : 'text-[#2c3e50] hover:bg-[#1abc9c] hover:text-white'
-              ]"
-            >
-              <span>{{ q.label }} <span class="opacity-70">({{ q.description }})</span></span>
-            </div>
+            <QualityMenuList
+              :options="qualities"
+              :selected="playerStore.quality"
+              :disabled="isSwitchingQuality"
+              @select="selectQuality"
+            />
           </div>
         </div>
 
@@ -184,6 +175,7 @@ import { normalizeArtistField } from '../utils/song-utils'
 import type { QualityType, PlayMode } from '../types'
 
 import { QUALITY_OPTIONS } from '../utils/quality-options'
+import QualityMenuList from './QualityMenuList.vue'
 
 const playerStore = usePlayerStore()
 const playlistStore = usePlaylistStore()
@@ -198,6 +190,7 @@ const isExploring = ref(false)
 const lastVolume = ref(0.8)
 
 const qualities = QUALITY_OPTIONS
+
 const isSeeking = ref(false)
 const seekPreviewValue = ref<number | null>(null)
 const wasPlayingBeforeSeek = ref(false)

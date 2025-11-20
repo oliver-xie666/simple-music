@@ -2,8 +2,10 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { Song, PlayMode, QualityType } from '../types'
 import { formatTime } from '../utils/song-utils'
+import { useLyricsStore } from './lyrics'
 
 export const usePlayerStore = defineStore('player', () => {
+  const lyricsStore = useLyricsStore()
   // State
   const currentSong = ref<Song | null>(null)
   const isPlaying = ref(false)
@@ -39,6 +41,9 @@ export const usePlayerStore = defineStore('player', () => {
 
   function setCurrentSong(song: Song | null, preserveTime: boolean = false) {
     currentSong.value = song
+    if (!song) {
+      lyricsStore.clearLyrics()
+    }
     // 只有切换歌曲时才重置进度，切换音质时保留进度
     if (!preserveTime) {
       currentTime.value = 0

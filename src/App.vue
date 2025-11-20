@@ -177,7 +177,21 @@ watch(() => playerStore.isPlaying, (playing: boolean) => {
 
 // 监听当前歌曲变化：切换音频源，并确保补全封面信息（如果缺失）
 watch(() => playerStore.currentSong, async (song: any, oldSong: any) => {
-  if (!audioRef.value || !song) return
+  if (!audioRef.value) return
+
+  if (!song) {
+    const audio = audioRef.value
+    audio.pause()
+    audio.removeAttribute('src')
+    audio.load()
+    audio.currentTime = 0
+    playerStore.setCurrentTime(0)
+    playerStore.setDuration(0)
+    playerStore.setPendingSeekTime(null)
+    lyricsStore.clearLyrics()
+    isQualitySwitching.value = false
+    return
+  }
   
   // 如果是切换音质（同一首歌，只是 URL 不同），不重置进度
   const isQualitySwitch = oldSong && song.id === oldSong.id && song.url !== oldSong.url

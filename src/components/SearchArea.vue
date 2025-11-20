@@ -285,22 +285,17 @@
         <div
           v-if="showDownloadMenu !== null && activeDownloadSong"
           data-download-menu
-          class="fixed rounded-2 border min-w-[96px] z-[200000] shadow-[0_12px_30px_rgba(0,0,0,0.2)]"
-          :class="themeStore.isDark ? 'bg-[#2a2a2a] border-white/20' : 'bg-white border-black/10'"
+          class="fixed rounded-3 border min-w-[190px] max-w-[75vw] z-[200000] shadow-[0_12px_30px_rgba(0,0,0,0.2)] p-2"
+          :class="themeStore.isDark ? 'bg-[#1c1c1c] border-white/15' : 'bg-white border-black/10'"
           :style="{
             top: `${downloadMenuPosition.y}px`,
             left: `${downloadMenuPosition.x}px`
           }"
         >
-          <button
-            v-for="q in qualityOptions"
-            :key="q.value"
-            @click.stop="handleDownload(activeDownloadSong, q.value)"
-            class="w-full px-3 py-2 text-left text-0.9em cursor-pointer transition-all duration-200 border-none bg-transparent"
-            :class="themeStore.isDark ? 'text-white hover:bg-white/10' : 'text-[#2c3e50] hover:bg-[#1abc9c]/10'"
-          >
-            {{ q.label }} ({{ q.description }})
-          </button>
+          <QualityMenuList
+            :options="qualityOptions"
+            @select="value => handleDownload(activeDownloadSong, value)"
+          />
         </div>
       </Teleport>
 
@@ -399,6 +394,7 @@ import { useNotification } from '../composables/useNotification'
 import type { MusicSource } from '../types'
 import { getSongUrl } from '../api'
 import { QUALITY_OPTIONS } from '../utils/quality-options'
+import QualityMenuList from './QualityMenuList.vue'
 
 const searchStore = useSearchStore()
 const themeStore = useThemeStore()

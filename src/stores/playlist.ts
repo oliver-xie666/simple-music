@@ -2,9 +2,11 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { Song } from '../types'
 import { usePlayerStore } from './player'
+import { useLyricsStore } from './lyrics'
 
 export const usePlaylistStore = defineStore('playlist', () => {
   const playerStore = usePlayerStore()
+  const lyricsStore = useLyricsStore()
 
   // State
   const songs = ref<Song[]>([])
@@ -71,6 +73,7 @@ export const usePlaylistStore = defineStore('playlist', () => {
     currentIndex.value = -1
     playerStore.setCurrentSong(null)
     playerStore.pause()
+    lyricsStore.clearLyrics()
     saveToStorage()
   }
 
