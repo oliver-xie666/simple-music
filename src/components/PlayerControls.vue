@@ -86,9 +86,9 @@
     <div class="flex items-center justify-between gap-5 w-full flex-wrap md:flex-nowrap">
       <div class="flex items-center gap-4 justify-start flex-1 min-w-0 flex-wrap md:flex-nowrap">
         <!-- 音质选择 -->
-        <div class="relative flex-shrink-0">
+        <div class="relative flex-shrink-0" ref="qualityMenuContainerRef">
           <button 
-            @click="showQualityMenu = !showQualityMenu"
+            @click.stop="showQualityMenu = !showQualityMenu"
             class="flex items-center justify-center gap-0 px-4 py-2.5 rounded-2 border font-medium cursor-pointer transition-all duration-200"
             :title="'音质: ' + qualityText"
             :class="[
@@ -108,9 +108,11 @@
           
           <div 
             v-show="showQualityMenu"
+            ref="qualityMenuRef"
             class="absolute bottom-[calc(100%+10px)] right-0 rounded-3 border min-w-[190px] overflow-hidden z-[100000] transition-all duration-200 shadow-[0_12px_30px_rgba(0,0,0,0.2)] p-2"
             :class="themeStore.isDark ? 'bg-[#1c1c1c] border-white/15' : 'bg-white border-black/10'"
             :style="{ pointerEvents: isSwitchingQuality ? 'none' : 'auto', opacity: isSwitchingQuality ? 0.6 : 1 }"
+            @click.stop
           >
             <QualityMenuList
               :options="qualities"
@@ -163,7 +165,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onBeforeUnmount } from 'vue'
+import { ref, computed, onBeforeUnmount, watch } from 'vue'
 import { usePlayerStore } from '../stores/player'
 import { usePlaylistStore } from '../stores/playlist'
 import { useThemeStore } from '../stores/theme'
@@ -188,6 +190,8 @@ const showQualityMenu = ref(false)
 const isSwitchingQuality = ref(false)
 const isExploring = ref(false)
 const lastVolume = ref(0.8)
+const qualityMenuContainerRef = ref<HTMLElement | null>(null)
+const qualityMenuRef = ref<HTMLElement | null>(null)
 
 const qualities = QUALITY_OPTIONS
 
@@ -482,7 +486,31 @@ async function handleExploreRadar() {
   }
 }
 
+// 点击外部区域关闭音质菜单
+function handleClickOutside(event: MouseEvent) {
+  if (!showQualityMenu.value) return
+  if (!qualityMenuContainerRef.value) return
+  
+  const target = event.target as Node
+  if (!qualityMenuContainerRef.value.contains(target)) {
+    showQualityMenu.value = false
+  }
+}
+
+// 监听菜单显示状态，添加/移除全局点击监听器
+watch(showQualityMenu, (isOpen) => {
+  if (isOpen) {
+    // 使用 setTimeout 确保在下一个事件循环中添加监听器，避免立即触发
+    setTimeout(() => {
+      document.addEventListener('click', handleClickOutside)
+    }, 0)
+  } else {
+    document.removeEventListener('click', handleClickOutside)
+  }
+})
+
 onBeforeUnmount(() => {
   detachSeekListeners()
+  document.removeEventListener('click', handleClickOutside)
 })
 </script>
