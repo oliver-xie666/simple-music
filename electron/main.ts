@@ -1,6 +1,6 @@
 import { app, BrowserWindow, globalShortcut } from 'electron'
 import { join } from 'path'
-import { setupIpcHandlers } from './services/ipc'
+import { setupIpcHandlers, cancelAllActiveDownloads } from './services/ipc'
 
 process.env.DIST = join(__dirname, '../dist')
 process.env.VITE_PUBLIC = app.isPackaged
@@ -90,8 +90,10 @@ app.on('window-all-closed', () => {
   }
 })
 
-// 应用退出前注销所有快捷键
+// 应用退出前注销所有快捷键并取消所有下载
 app.on('will-quit', () => {
   globalShortcut.unregisterAll()
+  // 取消所有正在进行的下载并删除未完成的文件
+  cancelAllActiveDownloads()
 })
 

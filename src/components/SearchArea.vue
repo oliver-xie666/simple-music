@@ -186,6 +186,7 @@
             <div 
               v-for="(song, index) in searchStore.results" 
               :key="index"
+              :ref="el => { if (el) songRefs[index] = el as HTMLElement }"
               @click="toggleSelection(index, $event)"
               class="flex items-center gap-3 px-4 py-3 rounded-3 cursor-pointer transition-all duration-300 border relative"
               :class="[
@@ -391,8 +392,8 @@ import { useThemeStore } from '../stores/theme'
 import { useSearch } from '../composables/useSearch'
 import { usePlayer } from '../composables/usePlayer'
 import { useNotification } from '../composables/useNotification'
+import { useDownload } from '../composables/useDownload'
 import type { MusicSource } from '../types'
-import { getSongUrl } from '../api'
 import { QUALITY_OPTIONS } from '../utils/quality-options'
 import QualityMenuList from './QualityMenuList.vue'
 
@@ -402,6 +403,7 @@ const searchComposable = useSearch()
 const { search: performSearch, playAllSearchResults: playAll, importSelectedSearchResults, toggleSearchResultSelection, goToPage, setSearchLimit } = searchComposable
 const { playAtIndex } = usePlayer()
 const { show: showNotification } = useNotification()
+const { downloadSong } = useDownload()
 const searchQuery = ref('')
 const showMenu = ref(false)
 // const showImportMenu = ref(false)
@@ -410,6 +412,7 @@ const downloadMenuPosition = ref({ x: 0, y: 0 })
 const qualityOptions = QUALITY_OPTIONS
 const jumpPage = ref(1)
 const searchAreaRef = ref<HTMLElement | null>(null)
+const songRefs = ref<Record<number, HTMLElement>>({})
 const skeletonItemCount = 6
 const playAllLoading = ref(false)
 const playingSongKey = ref<string | null>(null)
@@ -474,7 +477,7 @@ function isSongPlaying(song: any) {
 async function playSong(song: any) {
   if (isSongPlaying(song)) return
   playingSongKey.value = getSongKey(song)
-  hideResultsDropdown()
+  // 播放时不隐藏下拉框
 
   const { usePlaylistStore } = await import('../stores/playlist')
   const playlistStore = usePlaylistStore()
@@ -539,51 +542,16 @@ function handleImportToPlaylist() {
 
 async function handleDownload(song: any, quality: string) {
   closeDownloadMenu()
+  // 下载时不隐藏下拉框
   
-  try {
-    showNotification('正在准备下载...', 'info')
-    
-    // 获取下载链接
-    const response = await getSongUrl(song.id, song.source, quality)
-    if (!response || !response.data || !response.data.url) {
-      throw new Error('无法获取下载链接')
-    }
+  // 获取源元素用于动画
+  const songIndex = searchStore.results.findIndex(s => s.id === song.id && s.source === song.source)
+  const sourceElement = songIndex >= 0 && songRefs.value[songIndex] 
+    ? songRefs.value[songIndex] 
+    : undefined
 
-    const downloadUrl = response.data.url
-    
-    // 在 Electron 环境中使用 IPC 下载
-    if (window.electronAPI) {
-      const filename = `${song.name} - ${song.artist}`
-      const result = await window.electronAPI.downloadMusic({
-        id: song.id,
-        source: song.source,
-        quality: quality === 'flac' ? '999' : quality,
-        filename
-      })
-      
-      if (result.success) {
-        showNotification('下载成功', 'success')
-      } else if (result.canceled) {
-        // 用户取消了保存对话框
-        return
-      } else {
-        throw new Error(result.error || '下载失败')
-      }
-    } else {
-      // 浏览器环境：直接下载
-      const link = document.createElement('a')
-      link.href = downloadUrl
-      link.download = `${song.name} - ${song.artist}.${quality === 'flac' ? 'flac' : 'mp3'}`
-      link.target = '_blank'
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      showNotification('下载已开始', 'success')
-    }
-  } catch (error: any) {
-    console.error('下载失败:', error)
-    showNotification(error.message || '下载失败，请稍后重试', 'error')
-  }
+  // 使用新的下载系统
+  await downloadSong(song, quality as any, sourceElement || undefined)
 }
 
 function formatArtist(artist: any): string {

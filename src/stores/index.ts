@@ -7,4 +7,5 @@ export { useFavoritesStore } from './favorites'
 export { useSearchStore } from './search'
 export { useLyricsStore } from './lyrics'
 export { useThemeStore } from './theme'
+export { useDownloadStore } from './download'
 

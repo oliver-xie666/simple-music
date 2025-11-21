@@ -82,9 +82,50 @@
       </span>
     </div>
 
-    <!-- 右侧：音质、音量、探索雷达 -->
+    <!-- 右侧：音质、音量、下载列表、探索雷达 -->
     <div class="flex items-center justify-between gap-5 w-full flex-wrap md:flex-nowrap">
       <div class="flex items-center gap-4 justify-start flex-1 min-w-0 flex-wrap md:flex-nowrap">
+        <!-- 下载列表 -->
+        <div class="relative flex-shrink-0" ref="downloadListContainerRef">
+          <button 
+            @click.stop="downloadStore.toggleDownloadList()"
+            data-download-list-button
+            class="relative flex items-center justify-center gap-0 px-4 py-2.5 rounded-2 border font-medium cursor-pointer transition-all duration-200"
+            :title="downloadStore.hasActiveDownloads ? `下载中 (${downloadStore.totalProgress}%)` : '下载列表'"
+            :class="[
+              downloadStore.showDownloadList ? 'border-[#1abc9c] text-[#1abc9c]' : themeStore.isDark ? 'text-[#ecf0f1] border-white/15 hover:border-[#1abc9c] hover:text-[#1abc9c]' : 'text-[#2c3e50] border-black/10 hover:border-[#1abc9c] hover:text-[#1abc9c]',
+              themeStore.isDark ? 'bg-[#2c2c2c]/50' : 'bg-white/50'
+            ]"
+            style="font-size: 0.9em; box-shadow: none;"
+          >
+            <i class="fas fa-download text-sm mr-2"></i>
+            <span>下载</span>
+            <span 
+              v-if="downloadStore.hasActiveDownloads" 
+              class="ml-2 text-xs"
+            >
+              {{ downloadStore.totalProgress }}%
+            </span>
+            <span 
+              v-if="downloadStore.activeTasks.length > 0"
+              class="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#1abc9c] text-white text-[10px] flex items-center justify-center"
+            >
+              {{ downloadStore.activeTasks.length }}
+            </span>
+          </button>
+          
+          <!-- 下载列表下拉菜单 -->
+          <div 
+            v-show="downloadStore.showDownloadList"
+            ref="downloadListRef"
+            class="absolute bottom-[calc(100%+10px)] right-0 rounded-3 border min-w-[400px] max-w-[90vw] max-h-[500px] overflow-hidden z-[100000] transition-all duration-200 shadow-[0_12px_30px_rgba(0,0,0,0.2)]"
+            :class="themeStore.isDark ? 'bg-[#1c1c1c] border-white/15' : 'bg-white border-black/10'"
+            @click.stop
+          >
+            <DownloadList />
+          </div>
+        </div>
+
         <!-- 音质选择 -->
         <div class="relative flex-shrink-0" ref="qualityMenuContainerRef">
           <button 
@@ -169,6 +210,7 @@ import { ref, computed, onBeforeUnmount, watch } from 'vue'
 import { usePlayerStore } from '../stores/player'
 import { usePlaylistStore } from '../stores/playlist'
 import { useThemeStore } from '../stores/theme'
+import { useDownloadStore } from '../stores/download'
 import { usePlayer } from '../composables/usePlayer'
 import { useNotification } from '../composables/useNotification'
 import { useStorage } from '../composables/useStorage'
@@ -178,10 +220,12 @@ import type { QualityType, PlayMode } from '../types'
 
 import { QUALITY_OPTIONS } from '../utils/quality-options'
 import QualityMenuList from './QualityMenuList.vue'
+import DownloadList from './DownloadList.vue'
 
 const playerStore = usePlayerStore()
 const playlistStore = usePlaylistStore()
 const themeStore = useThemeStore()
+const downloadStore = useDownloadStore()
 const { playAtIndex, playNext, playPrevious, reloadCurrentSongWithNewQuality } = usePlayer()
 const { show: showNotification } = useNotification()
 const { saveToStorage } = useStorage()
@@ -192,6 +236,8 @@ const isExploring = ref(false)
 const lastVolume = ref(0.8)
 const qualityMenuContainerRef = ref<HTMLElement | null>(null)
 const qualityMenuRef = ref<HTMLElement | null>(null)
+const downloadListContainerRef = ref<HTMLElement | null>(null)
+const downloadListRef = ref<HTMLElement | null>(null)
 
 const qualities = QUALITY_OPTIONS
 
@@ -486,14 +532,22 @@ async function handleExploreRadar() {
   }
 }
 
-// 点击外部区域关闭音质菜单
+// 点击外部区域关闭音质菜单和下载列表
 function handleClickOutside(event: MouseEvent) {
-  if (!showQualityMenu.value) return
-  if (!qualityMenuContainerRef.value) return
-  
   const target = event.target as Node
-  if (!qualityMenuContainerRef.value.contains(target)) {
-    showQualityMenu.value = false
+  
+  // 关闭音质菜单
+  if (showQualityMenu.value && qualityMenuContainerRef.value) {
+    if (!qualityMenuContainerRef.value.contains(target)) {
+      showQualityMenu.value = false
+    }
+  }
+  
+  // 关闭下载列表
+  if (downloadStore.showDownloadList && downloadListContainerRef.value) {
+    if (!downloadListContainerRef.value.contains(target)) {
+      downloadStore.setShowDownloadList(false)
+    }
   }
 }
 
@@ -505,7 +559,22 @@ watch(showQualityMenu, (isOpen) => {
       document.addEventListener('click', handleClickOutside)
     }, 0)
   } else {
-    document.removeEventListener('click', handleClickOutside)
+    // 只有在两个菜单都关闭时才移除监听器
+    if (!downloadStore.showDownloadList) {
+      document.removeEventListener('click', handleClickOutside)
+    }
+  }
+})
+
+watch(() => downloadStore.showDownloadList, (isOpen) => {
+  if (isOpen) {
+    setTimeout(() => {
+      document.addEventListener('click', handleClickOutside)
+    }, 0)
+  } else {
+    if (!showQualityMenu.value) {
+      document.removeEventListener('click', handleClickOutside)
+    }
   }
 })
 

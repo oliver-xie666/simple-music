@@ -114,6 +114,7 @@ import { useLyricsStore } from './stores/lyrics'
 import { usePlayer } from './composables/usePlayer'
 import { useNotification } from './composables/useNotification'
 import { useStorage } from './composables/useStorage'
+import { useDownload } from './composables/useDownload'
 import SearchArea from './components/SearchArea.vue'
 import CoverArea from './components/CoverArea.vue'
 import PlaylistArea from './components/PlaylistArea.vue'
@@ -126,6 +127,7 @@ const lyricsStore = useLyricsStore()
 const { playNext, hydrateCurrentSongArtwork } = usePlayer()
 const { show: showNotification, notification } = useNotification()
 const { loadFromStorage, saveToStorage, schedulePlaybackSnapshot } = useStorage()
+const { cancelAllDownloads } = useDownload()
 
 const audioRef = ref<HTMLAudioElement | null>(null)
 // 标记是否正在切换音质，用于阻止进度更新导致的闪烁
@@ -393,14 +395,34 @@ if (audioRef.value) {
   audioRef.value.volume = playerStore.volume
 }
 
+// 应用关闭时的清理函数
+function handleBeforeUnload() {
+  // 保存数据
+  saveToStorage()
+  // 取消所有正在进行的下载并删除未完成的文件（同步调用，内部异步处理）
+  cancelAllDownloads()
+}
+
+// 页面隐藏时也执行清理（用户切换标签页或最小化窗口）
+function handleVisibilityChange() {
+  if (document.hidden) {
+    // 页面隐藏时取消所有下载（可选，根据需求决定是否启用）
+    // cancelAllDownloads()
+  }
+}
+
 onMounted(() => {
-  window.addEventListener('beforeunload', saveToStorage)
+  window.addEventListener('beforeunload', handleBeforeUnload)
+  window.addEventListener('visibilitychange', handleVisibilityChange)
   window.addEventListener('seek-audio', handleExternalSeek)
 })
 
 onBeforeUnmount(() => {
-  window.removeEventListener('beforeunload', saveToStorage)
+  window.removeEventListener('beforeunload', handleBeforeUnload)
+  window.removeEventListener('visibilitychange', handleVisibilityChange)
   window.removeEventListener('seek-audio', handleExternalSeek)
+  // 组件卸载时也执行清理
+  cancelAllDownloads()
 })
 </script>
 
