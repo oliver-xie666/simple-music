@@ -1,6 +1,6 @@
 # Simple Music
 
-一个基于 Electron + Vue3 + TypeScript + UnoCSS 的桌面音乐播放器
+一个基于 Electron + Vue3 + TypeScript + UnoCSS 的现代音乐播放器，支持 **Web** 和 **Electron** 两种运行模式
 
 ## ✨ 特性
 
@@ -23,24 +23,63 @@ npm install
 
 ### 开发模式
 
+项目支持两种运行模式：
+
+#### 🌐 Web 模式（默认）
+
+在浏览器中运行，适合 Web 部署：
+
 ```bash
 npm run dev
+# 或
+npm run dev:web
+```
+
+访问 `http://localhost:5173` 即可在浏览器中使用。
+
+#### 🖥️ Electron 模式
+
+作为桌面应用运行，支持更多系统级功能（如下载到本地文件系统）：
+
+```bash
+npm run dev:electron
 ```
 
 ### 构建应用
 
+#### 🌐 构建 Web 版本
+
 ```bash
-npm run build
+npm run build:web
 ```
+
+构建产物在 `dist/` 目录，可直接部署到静态服务器。
+
+#### 🖥️ 构建 Electron 版本
+
+```bash
+npm run build:electron
+```
+
+会先构建前端代码，然后使用 electron-builder 打包成桌面应用。
 
 ## 📦 技术栈
 
-- **Electron** - 跨平台桌面应用框架
+- **Electron** - 跨平台桌面应用框架（可选）
 - **Vue 3** - 渐进式 JavaScript 框架
 - **TypeScript** - JavaScript 的超集
 - **Vite** - 下一代前端构建工具
 - **UnoCSS** - 即时按需原子化 CSS 引擎
 - **Pinia** - Vue 的状态管理库
+
+## 🔄 运行模式说明
+
+项目支持两种运行模式，代码会自动适配：
+
+- **Web 模式**：纯浏览器运行，使用 localStorage 存储，下载功能通过浏览器下载
+- **Electron 模式**：桌面应用运行，使用文件系统存储，支持原生文件对话框和系统级下载
+
+两种模式共享相同的代码库，通过 API 适配层自动选择最佳实现方式。
 
 ## 📁 项目结构
 

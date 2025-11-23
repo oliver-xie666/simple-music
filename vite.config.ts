@@ -5,32 +5,43 @@ import renderer from 'vite-plugin-electron-renderer'
 import UnoCSS from 'unocss/vite'
 import { resolve } from 'path'
 
+// 检测是否为 Electron 模式
+// 通过环境变量 ELECTRON_MODE 或命令行参数 --mode electron 来判断
+const isElectronMode = process.env.ELECTRON_MODE === 'true' || process.env.MODE === 'electron'
+
 export default defineConfig({
   plugins: [
     vue(),
     UnoCSS(),
-    electron([
-      {
-        entry: 'electron/main.ts',
-        vite: {
-          build: {
-            outDir: 'dist-electron'
+    // 只在 Electron 模式下加载 Electron 插件
+    ...(isElectronMode ? [
+      electron([
+        {
+          entry: 'electron/main.ts',
+          onstart(options) {
+            // 启动 Electron 应用
+            options.startup()
+          },
+          vite: {
+            build: {
+              outDir: 'dist-electron'
+            }
           }
-        }
-      },
-      {
-        entry: 'electron/preload.ts',
-        onstart(options) {
-          options.reload()
         },
-        vite: {
-          build: {
-            outDir: 'dist-electron'
+        {
+          entry: 'electron/preload.ts',
+          onstart(options) {
+            options.reload()
+          },
+          vite: {
+            build: {
+              outDir: 'dist-electron'
+            }
           }
         }
-      }
-    ]),
-    renderer()
+      ]),
+      renderer()
+    ] : [])
   ],
   resolve: {
     alias: {

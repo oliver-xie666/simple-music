@@ -1,14 +1,5 @@
 import axios from 'axios'
 
-const MAX_DIMENSION = 96
-const TARGET_SAMPLE_COUNT = 2400
-
-interface DecodedImage {
-  width: number
-  height: number
-  data: Uint8ClampedArray
-}
-
 interface PaletteStop {
   gradient: string
   colors: string[]
@@ -41,11 +32,6 @@ interface RgbColor {
   b: number
 }
 
-interface AnalyzedColors {
-  average: HslColor
-  accent: HslColor
-}
-
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max)
 }
@@ -57,36 +43,6 @@ function componentToHex(value: number): string {
 
 function rgbToHex({ r, g, b }: RgbColor): string {
   return `#${componentToHex(r)}${componentToHex(g)}${componentToHex(b)}`
-}
-
-function rgbToHsl(r: number, g: number, b: number): HslColor {
-  const rNorm = clamp(r / 255, 0, 1)
-  const gNorm = clamp(g / 255, 0, 1)
-  const bNorm = clamp(b / 255, 0, 1)
-
-  const max = Math.max(rNorm, gNorm, bNorm)
-  const min = Math.min(rNorm, gNorm, bNorm)
-  const delta = max - min
-
-  let h = 0
-  if (delta !== 0) {
-    if (max === rNorm) {
-      h = ((gNorm - bNorm) / delta) % 6
-    } else if (max === gNorm) {
-      h = (bNorm - rNorm) / delta + 2
-    } else {
-      h = (rNorm - gNorm) / delta + 4
-    }
-    h *= 60
-    if (h < 0) {
-      h += 360
-    }
-  }
-
-  const l = (max + min) / 2
-  const s = delta === 0 ? 0 : delta / (1 - Math.abs(2 * l - 1))
-
-  return { h, s, l }
 }
 
 function hueToRgb(p: number, q: number, t: number): number {
@@ -154,60 +110,6 @@ function adjustLightness(base: number, offset: number, factor = 1): number {
   return clamp(base * factor + offset, 0, 1)
 }
 
-function analyzeImageColors(image: DecodedImage): AnalyzedColors {
-  const { data } = image
-  const totalPixels = data.length / 4
-  const step = Math.max(1, Math.floor(totalPixels / TARGET_SAMPLE_COUNT))
-
-  let totalR = 0
-  let totalG = 0
-  let totalB = 0
-  let count = 0
-
-  let accent: { color: HslColor; score: number } | null = null
-
-  for (let index = 0; index < data.length; index += step * 4) {
-    const alpha = data[index + 3]
-    if (alpha < 48) {
-      continue
-    }
-
-    const r = data[index]
-    const g = data[index + 1]
-    const b = data[index + 2]
-
-    totalR += r
-    totalG += g
-    totalB += b
-    count++
-
-    const hsl = rgbToHsl(r, g, b)
-    const vibrance = hsl.s
-    const balance = 1 - Math.abs(hsl.l - 0.5)
-    const score = vibrance * 0.65 + balance * 0.35
-
-    if (!accent || score > accent.score) {
-      accent = { color: hsl, score }
-    }
-  }
-
-  if (count === 0) {
-    throw new Error('No opaque pixels available for analysis')
-  }
-
-  const averageR = totalR / count
-  const averageG = totalG / count
-  const averageB = totalB / count
-  const average = rgbToHsl(averageR, averageG, averageB)
-
-  const accentColor = accent ? accent.color : average
-
-  return {
-    average,
-    accent: accentColor,
-  }
-}
-
 function buildGradientStops(accent: HslColor): { light: PaletteStop; dark: PaletteStop } {
   const lightColors = [
     hslToHex({ h: accent.h, s: adjustSaturation(accent.s, 0.4, 0.08), l: adjustLightness(accent.l, 0.42, 0.52) }),
@@ -246,17 +148,7 @@ function buildThemeTokens(accent: HslColor): Record<'light' | 'dark', ThemeToken
   }
 }
 
-// 简化的图片解码 - 使用 Canvas API（在 Electron 中可用）
-async function decodeImageFromBuffer(buffer: Buffer): Promise<DecodedImage> {
-  // 在 Electron 主进程中，我们可以使用 sharp 库来处理图片
-  // 这里先提供一个简化版本，返回基础的颜色分析
-  // 实际使用时可以考虑集成 sharp 或其他图片处理库
-  
-  // 暂时返回一个默认的调色板，建议使用 canvas 或 sharp 库
-  throw new Error('Image decoding needs sharp or canvas implementation')
-}
-
-async function buildPalette(imageBuffer: Buffer): Promise<PaletteResponse> {
+async function buildPalette(_imageBuffer: Buffer): Promise<PaletteResponse> {
   // TODO: 实现实际的图片解码
   // 建议：npm install sharp 然后使用 sharp 来解码和分析图片
   

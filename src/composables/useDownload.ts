@@ -249,7 +249,7 @@ export function useDownload() {
       }
 
       // 合并所有 chunks 为 Blob
-      const blob = new Blob(chunks)
+      const blob = new Blob(chunks as BlobPart[])
       const blobUrl = URL.createObjectURL(blob)
 
       // 生成唯一的文件名（避免冲突）
