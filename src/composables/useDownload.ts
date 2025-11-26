@@ -1,8 +1,9 @@
 import { useDownloadStore } from '../stores/download'
-import { normalizeArtistField } from '../utils/song-utils'
+import { normalizeArtistField, sanitizeFilenameSegment } from '../utils/song-utils'
 import { getSongUrl } from '../api/adapter'
 import { useNotification } from './useNotification'
 import type { Song, QualityType } from '../types'
+import { concurrentDownloadController } from '../utils/concurrent-download'
 
 // 存储 Web 环境的下载控制器
 const webDownloadControllers = new Map<string, AbortController>()
@@ -46,16 +47,19 @@ export function useDownload() {
   const downloadStore = useDownloadStore()
   const { show: showNotification } = useNotification()
 
-  async function downloadSong(song: Song, quality: QualityType, sourceElement?: HTMLElement) {
-    // 添加下载任务
-    const taskId = downloadStore.addDownloadTask(song, quality)
-    
-    // 如果 taskId 为 null，说明已存在相同音质的任务
-    if (taskId === null) {
-      showNotification('下载列表已存在', 'warning')
-      return
-    }
-    
+  /**
+   * 执行下载（内部函数，不添加任务）
+   * @param song 歌曲信息
+   * @param quality 音质
+   * @param taskId 任务ID（必须已存在）
+   * @param sourceElement 可选的源元素（用于动画）
+   */
+  async function executeDownload(
+    song: Song,
+    quality: QualityType,
+    taskId: string,
+    sourceElement?: HTMLElement
+  ) {
     // 如果提供了源元素，立即触发动画（不等待）
     if (sourceElement) {
       // 使用 nextTick 确保 DOM 已更新，下载按钮已渲染
@@ -65,7 +69,9 @@ export function useDownload() {
     }
 
     try {
-      const filename = `${normalizeArtistField(song.artist)}-${song.name}`
+      const artistSafe = sanitizeFilenameSegment(normalizeArtistField(song.artist), '未知艺术家')
+      const songSafe = sanitizeFilenameSegment(song.name, '未知歌曲')
+      const filename = `${artistSafe}-${songSafe}`
       
       // 检查环境：Electron 或 Web
       if ((window as any).electronAPI) {
@@ -87,14 +93,30 @@ export function useDownload() {
       } else if (!isPaused) {
         // 如果不是暂停状态，标记为失败
         downloadStore.failTask(taskId, error?.message || '下载失败，请稍后重试')
-        // 显示下载失败通知
-        showDownloadNotification(song.name, false, error?.message || '下载失败')
+        // 显示下载失败通知（格式：歌手-歌曲下载失败）
+        const artistName = normalizeArtistField(song.artist)
+        showDownloadNotification(`${artistName}-${song.name}下载失败`, false, error?.message || '下载失败')
       }
       // 清理控制器（如果任务不是暂停状态）
       if (!isPaused) {
         webDownloadControllers.delete(taskId)
       }
     }
+  }
+
+  async function downloadSong(song: Song, quality: QualityType, sourceElement?: HTMLElement) {
+    // 添加下载任务
+    const taskId = downloadStore.addDownloadTask(song, quality)
+    
+    // 如果 taskId 为 null，说明已存在相同音质的任务
+    if (taskId === null) {
+      const artistName = normalizeArtistField(song.artist)
+      showNotification(`${artistName}-${song.name}已存在下载列表`, 'warning')
+      return
+    }
+    
+    // 执行下载
+    await executeDownload(song, quality, taskId, sourceElement)
   }
 
   // Electron 环境下载
@@ -136,7 +158,8 @@ export function useDownload() {
         downloadStore.setTempFilePath(taskId, '')
         
         // 显示下载完成通知
-        showDownloadNotification(song.name, true)
+        const artistName = normalizeArtistField(song.artist)
+        showDownloadNotification(`${artistName}-${song.name}`, true)
       } else if (result.canceled) {
         // 删除未完成的文件
         const task = downloadStore.tasks.find(t => t.id === taskId)
@@ -182,11 +205,21 @@ export function useDownload() {
 
     try {
       // 获取下载 URL
-      const urlResponse = await getSongUrl(song.id, song.source, quality === 'flac' ? '999' : quality)
+      let urlResponse
+      try {
+        urlResponse = await getSongUrl(song.id, song.source, quality === 'flac' ? '999' : quality)
+      } catch (error: any) {
+        // 如果是限流错误，给出更明确的提示
+        if (error?.message?.includes('接口调用过于频繁') || error?.message?.includes('请等待')) {
+          throw new Error(`获取下载链接失败：${error.message}（重试时不会发送网络请求，因为已被限流器阻止）`)
+        }
+        throw error
+      }
+      
       const musicUrl = urlResponse?.data?.url || urlResponse?.data?.data?.url
       
       if (!musicUrl) {
-        throw new Error('无法获取下载链接')
+        throw new Error('无法获取下载链接：接口返回的URL为空')
       }
 
       // 开始下载
@@ -273,7 +306,8 @@ export function useDownload() {
       downloadStore.completeTask(taskId, filename)
       
       // 显示下载完成通知
-      showDownloadNotification(song.name, true)
+      const artistName = normalizeArtistField(song.artist)
+      showDownloadNotification(`${artistName}-${song.name}`, true)
       
       // 清理控制器
       webDownloadControllers.delete(taskId)
@@ -332,7 +366,9 @@ export function useDownload() {
       }
       // 直接调用下载函数，复用现有任务ID
       try {
-        await downloadWithWeb(task.song, task.quality, `${normalizeArtistField(task.song.artist)}-${task.song.name}`, taskId)
+        const resumedArtist = sanitizeFilenameSegment(normalizeArtistField(task.song.artist), '未知艺术家')
+        const resumedSongName = sanitizeFilenameSegment(task.song.name, '未知歌曲')
+        await downloadWithWeb(task.song, task.quality, `${resumedArtist}-${resumedSongName}`, taskId)
       } catch (error: any) {
         // 检查任务状态，如果是暂停或取消，不显示错误
         const currentTask = downloadStore.tasks.find(t => t.id === taskId)
@@ -341,7 +377,8 @@ export function useDownload() {
         }
         if (error?.name !== 'AbortError' && !error?.message?.includes('取消')) {
           downloadStore.failTask(taskId, error?.message || '下载失败，请稍后重试')
-          showDownloadNotification(task.song.name, false, error?.message || '下载失败')
+          const artistName = normalizeArtistField(task.song.artist)
+          showDownloadNotification(`${artistName}-${task.song.name}下载失败`, false, error?.message || '下载失败')
         }
       }
     }
@@ -351,6 +388,10 @@ export function useDownload() {
   async function cancelDownload(taskId: string) {
     const task = downloadStore.tasks.find(t => t.id === taskId)
     if (!task) return
+
+    // 从并发下载控制器中移除任务
+    const concurrentTaskId = `${task.song.id}-${task.song.source}-${task.quality}`
+    concurrentDownloadController.removeTask(concurrentTaskId)
 
     if ((window as any).electronAPI) {
       // Electron 环境：通过 IPC 取消并删除未完成的文件
@@ -388,8 +429,16 @@ export function useDownload() {
 
   // 重新下载
   async function retryDownload(task: any) {
+    // 从并发下载控制器中移除旧任务（如果存在）
+    const concurrentTaskId = `${task.song.id}-${task.song.source}-${task.quality}`
+    concurrentDownloadController.removeTask(concurrentTaskId)
+    
     // 移除旧任务
     downloadStore.removeTask(task.id)
+    
+    // 确保旧任务已完全移除（等待一个 tick）
+    await new Promise(resolve => setTimeout(resolve, 0))
+    
     // 重新下载
     await downloadSong(task.song, task.quality)
   }
@@ -521,8 +570,175 @@ export function useDownload() {
     })
   }
 
+  /**
+   * 批量下载歌曲
+   * @param songs 要下载的歌曲列表
+   * @param quality 音质
+   * @param sourceElements 可选的源元素数组（用于动画，单个下载时使用）
+   * @param batchSourceElement 可选的批量下载按钮元素（用于批量下载动画，如果提供则只触发一个动画）
+   */
+  async function downloadSongs(
+    songs: Song[],
+    quality: QualityType = '320',
+    sourceElements?: (HTMLElement | undefined)[],
+    batchSourceElement?: HTMLElement
+  ) {
+    if (songs.length === 0) {
+      showNotification('没有可下载的歌曲', 'warning')
+      return
+    }
+
+    // 第一步：先为所有歌曲添加下载任务（状态为pending）
+    const taskMap = new Map<number, string | null>() // 索引 -> taskId
+    let addedCount = 0
+    let skippedCount = 0
+
+    songs.forEach((song, index) => {
+      const taskId = downloadStore.addDownloadTask(song, quality)
+      taskMap.set(index, taskId)
+      if (taskId === null) {
+        skippedCount++
+      } else {
+        addedCount++
+      }
+    })
+
+    // 显示添加结果
+    if (skippedCount > 0) {
+      showNotification(`已添加 ${addedCount} 首到下载列表，${skippedCount} 首已存在`, 'info')
+    } else {
+      showNotification(`已添加 ${addedCount} 首到下载列表`, 'info')
+    }
+
+    // 第二步：触发动画
+    // 如果提供了批量下载按钮，只从该按钮触发一个动画
+    // 否则，为每个歌曲的下载按钮触发动画（单个下载时使用）
+    if (batchSourceElement) {
+      // 批量下载：只触发一个动画
+      const firstTaskId = Array.from(taskMap.values()).find(id => id !== null)
+      if (firstTaskId) {
+        requestAnimationFrame(() => {
+          triggerDownloadAnimation(batchSourceElement, firstTaskId)
+        })
+      }
+    } else {
+      // 单个下载：为每个任务触发动画
+      songs.forEach((_song, index) => {
+        const taskId = taskMap.get(index)
+        if (taskId === null || taskId === undefined) {
+          // 跳过已存在的任务
+          return
+        }
+
+        const sourceElement = sourceElements?.[index]
+        // 立即触发动画（不等待下载开始）
+        if (sourceElement) {
+          requestAnimationFrame(() => {
+            triggerDownloadAnimation(sourceElement, taskId)
+          })
+        }
+      })
+    }
+
+    // 第三步：使用并发控制器管理实际下载
+    // 只处理成功添加的任务
+    const taskInfoList: Array<{ taskId: string; song: Song; promise: Promise<void> }> = []
+
+    songs.forEach((song, index) => {
+      const taskId = taskMap.get(index)
+      if (taskId === null || taskId === undefined) {
+        // 跳过已存在的任务
+        return
+      }
+
+      // 使用歌曲的唯一标识作为任务ID（用于并发控制）
+      const concurrentTaskId = `${song.id}-${song.source}-${quality}`
+      
+      // 使用并发控制器管理下载
+      const promise = concurrentDownloadController.addTask(
+        concurrentTaskId,
+        async () => {
+          // 执行下载（限流已在apiRequest中处理）
+          // 注意：动画已在上面触发，这里不再触发
+          await executeDownload(song, quality, taskId, undefined)
+        }
+      )
+      
+      taskInfoList.push({ taskId, song, promise })
+    })
+
+    // 如果是批量下载（有 batchSourceElement），等待所有下载完成并显示统计
+    if (batchSourceElement && taskInfoList.length > 0) {
+      // 后台等待所有下载完成
+      Promise.allSettled(taskInfoList.map(t => t.promise)).then((results) => {
+        // 统计成功和失败的数量
+        let successCount = 0
+        let failedCount = 0
+        let cancelledCount = 0
+
+        results.forEach((result, index) => {
+          const { taskId } = taskInfoList[index]
+          const task = downloadStore.tasks.find(t => t.id === taskId)
+          
+          if (result.status === 'fulfilled') {
+            // Promise 成功完成，检查任务状态
+            if (task) {
+              if (task.status === 'completed') {
+                successCount++
+              } else if (task.status === 'failed') {
+                failedCount++
+              } else if (task.status === 'cancelled') {
+                cancelledCount++
+              }
+            } else {
+              // 任务已被移除，可能是成功完成后被清理
+              // 这里假设为成功（因为如果失败，任务通常还在列表中）
+              successCount++
+            }
+          } else {
+            // Promise 被拒绝，检查任务状态
+            if (task) {
+              if (task.status === 'failed') {
+                failedCount++
+              } else if (task.status === 'cancelled') {
+                cancelledCount++
+              } else {
+                // 其他状态，可能是取消
+                failedCount++
+              }
+            } else {
+              failedCount++
+            }
+          }
+        })
+
+        // 显示统计通知
+        const total = taskInfoList.length
+        const parts: string[] = []
+        if (successCount > 0) {
+          parts.push(`成功 ${successCount}`)
+        }
+        if (failedCount > 0) {
+          parts.push(`失败 ${failedCount}`)
+        }
+        if (cancelledCount > 0) {
+          parts.push(`取消 ${cancelledCount}`)
+        }
+
+        if (parts.length > 0) {
+          const message = `批量下载完成：${parts.join('，')}（共 ${total} 首）`
+          const type = failedCount > 0 ? 'warning' : 'success'
+          showNotification(message, type)
+        }
+      })
+    }
+    // 如果不是批量下载，不等待完成，让它们后台执行
+    // 并发控制器会自动管理队列，超过限制的任务会保持pending状态，显示"等待中"
+  }
+
   return {
     downloadSong,
+    downloadSongs,
     pauseDownload,
     resumeDownload,
     cancelDownload,

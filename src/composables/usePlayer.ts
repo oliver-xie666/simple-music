@@ -15,7 +15,7 @@ export function usePlayer() {
 
   /**
    * 准备歌曲用于播放（获取播放地址）
-   * 参考 Solara 项目实现：处理代理 URL 和 HTTPS 升级
+   * 处理代理 URL 和 HTTPS 升级
    */
   async function prepareSongForPlayback(song: Song): Promise<Song> {
     const needsRefresh = !song.url || (song.resolvedQuality && song.resolvedQuality !== playerStore.quality)
@@ -33,7 +33,7 @@ export function usePlayer() {
         throw new Error('无法获取播放地址')
       }
 
-      // 2. 处理代理 URL 和 HTTPS 升级（参考 Solara）
+      // 2. 处理代理 URL 和 HTTPS 升级
       // 对于 kuwo.cn 的 HTTP 链接，通过 /proxy?target=... 代理
       const proxiedAudioUrl = buildAudioProxyUrl(originalAudioUrl)
       const preferredAudioUrl = preferHttpsUrl(originalAudioUrl)
@@ -129,7 +129,7 @@ export function usePlayer() {
 
   /**
    * 重新加载当前歌曲（用于切换音质）
-   * 优化：获取 URL 后立即设置音频源，不等待封面和歌词（参考 Solara）
+   * 优化：获取 URL 后立即设置音频源，不等待封面和歌词
    */
   async function reloadCurrentSongWithNewQuality(): Promise<boolean> {
     if (!playerStore.currentSong || playlistStore.currentIndex < 0 || playlistStore.currentIndex >= playlistStore.songs.length) {

@@ -7,7 +7,7 @@
       playlistStore.songs.length === 0 ? 'items-center justify-center' : 'items-stretch justify-start'
     ]"
   >
-    <!-- 播放列表标题 / 操作区（参考 Solara） -->
+    <!-- 播放列表标题 / 操作区 -->
     <div
       class="absolute top-4 left-5 right-3 flex items-center justify-between gap-4 z-5 pointer-events-none"
     >
@@ -20,6 +20,26 @@
         </div>
       </div>
       <div class="flex items-center gap-2 pointer-events-auto">
+        <!-- 下载全部 -->
+        <button
+          ref="downloadAllButtonRef"
+          class="w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 border bg-white/80 shadow-[0_8px_18px_rgba(46,204,113,0.2)]"
+          :class="themeStore.isDark ? 'bg-[#181e28]/85 border-[#2ecc71]/40 text-[#2ecc71] hover:text-[#27ae60]' : 'border-[#2ecc71]/35 text-[#2ecc71] hover:text-[#27ae60]'"
+          type="button"
+          title="下载全部"
+          @click="handleDownloadAll"
+          :disabled="playlistStore.songs.length === 0 || isDownloadingAll"
+        >
+          <i 
+            v-if="isDownloadingAll"
+            class="fas fa-spinner fa-spin text-[14px]"
+          ></i>
+          <i 
+            v-else
+            class="fas fa-download text-[14px]"
+          ></i>
+        </button>
+
         <!-- 导入播放列表 -->
         <input
           ref="importInputRef"
@@ -101,7 +121,7 @@
             {{ song.name }} - {{ normalizeArtistField(song.artist) }}
           </span>
 
-          <!-- 下载 / 删除按钮：hover 时显示，样式和动效参考 Solara -->
+          <!-- 下载 / 删除按钮：hover 时显示，样式和动效-->
           <button
             class="playlist-item-download"
             type="button"
@@ -149,6 +169,7 @@
 import { nextTick, onBeforeUpdate, ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import { usePlaylistStore } from '../stores/playlist'
 import { useThemeStore } from '../stores/theme'
+import { usePlayerStore } from '../stores/player'
 import { usePlayer } from '../composables/usePlayer'
 import { useNotification } from '../composables/useNotification'
 import { useDownload } from '../composables/useDownload'
@@ -160,7 +181,7 @@ const playlistStore = usePlaylistStore()
 const themeStore = useThemeStore()
 const { playAtIndex } = usePlayer()
 const { show: showNotification } = useNotification()
-const { downloadSong } = useDownload()
+const { downloadSong, downloadSongs } = useDownload()
 const listRef = ref<HTMLDivElement | null>(null)
 const songRefs = ref<(HTMLDivElement | null)[]>([])
 const importInputRef = ref<HTMLInputElement | null>(null)
@@ -168,6 +189,8 @@ const showDownloadMenu = ref<number | null>(null)
 const activeDownloadSong = ref<any | null>(null)
 const downloadMenuPosition = ref({ x: 0, y: 0 })
 const qualityOptions = QUALITY_OPTIONS
+const isDownloadingAll = ref(false)
+const downloadAllButtonRef = ref<HTMLElement | null>(null)
 
 onBeforeUpdate(() => {
   songRefs.value = []
@@ -239,6 +262,33 @@ const handleClear = () => {
   if (!playlistStore.songs.length) return
   playlistStore.clearPlaylist()
   showNotification('播放列表已清空', 'success')
+}
+
+// 下载全部
+async function handleDownloadAll() {
+  if (playlistStore.songs.length === 0) {
+    showNotification('播放列表为空', 'warning')
+    return
+  }
+
+  if (isDownloadingAll.value) {
+    return
+  }
+
+  isDownloadingAll.value = true
+  try {
+    // 获取所有歌曲
+    const allSongs = playlistStore.songs
+
+    // 批量下载（使用当前选择的音质）
+    // 传递批量下载按钮元素，只触发一个动画
+    await downloadSongs(allSongs, usePlayerStore().quality, undefined, downloadAllButtonRef.value || undefined)
+  } catch (error: any) {
+    console.error('批量下载失败:', error)
+    showNotification(error?.message || '批量下载失败', 'error')
+  } finally {
+    isDownloadingAll.value = false
+  }
 }
 
 const handleRemove = (index: number) => {

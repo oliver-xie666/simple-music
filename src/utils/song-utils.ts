@@ -4,6 +4,25 @@
 import type { Song } from '../types'
 import { getPicUrl } from '../api'
 
+const ARTIST_DELIMITER = '、'
+const FORBIDDEN_FILENAME_CHARS = /[\\/:*?"<>|]/g
+const SLASH_CHAR_REGEX = /[\\/]+/g
+const MULTIPLE_SPACES_REGEX = /\s+/g
+
+function sanitizeDisplayValue(value: string): string {
+  return value
+    .replace(SLASH_CHAR_REGEX, ARTIST_DELIMITER)
+    .replace(FORBIDDEN_FILENAME_CHARS, '·')
+    .replace(MULTIPLE_SPACES_REGEX, ' ')
+    .trim()
+}
+
+export function sanitizeFilenameSegment(value: string | undefined | null, fallback = '未命名'): string {
+  const safeValue = (value ?? '').toString()
+  const sanitized = sanitizeDisplayValue(safeValue).replace(/[. ]+$/, '')
+  return sanitized || fallback
+}
+
 /**
  * 格式化时间（秒 -> MM:SS）
  */
@@ -31,8 +50,10 @@ export function normalizeArtistField(value: any): string {
         return String(entry)
       })
       .filter(Boolean)
+      .map(name => sanitizeDisplayValue(name))
+      .filter(Boolean)
 
-    return names.length ? names.join(' / ') : '未知艺术家'
+    return names.length ? names.join(ARTIST_DELIMITER) : '未知艺术家'
   }
 
   if (typeof value === 'object') {
@@ -40,10 +61,11 @@ export function normalizeArtistField(value: any): string {
     if (Array.isArray(value.ar)) return normalizeArtistField(value.ar)
     if (Array.isArray((value as any).data)) return normalizeArtistField((value as any).data)
 
-    return getFirstNonEmptyString(value.name, value.title, value.artist) || '未知艺术家'
+    const displayValue = getFirstNonEmptyString(value.name, value.title, value.artist)
+    return displayValue ? sanitizeDisplayValue(displayValue) : '未知艺术家'
   }
 
-  return String(value)
+  return sanitizeDisplayValue(String(value))
 }
 
 /**
@@ -53,10 +75,11 @@ export function normalizeAlbumField(value: any): string {
   if (value === undefined || value === null) return '未知专辑'
 
   if (typeof value === 'object') {
-    return getFirstNonEmptyString(value.name, value.title, value.album) || '未知专辑'
+    const result = getFirstNonEmptyString(value.name, value.title, value.album)
+    return result ? sanitizeDisplayValue(result) : '未知专辑'
   }
 
-  return String(value)
+  return sanitizeDisplayValue(String(value))
 }
 
 /**

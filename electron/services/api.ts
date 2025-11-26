@@ -32,6 +32,10 @@ export async function getSongUrl(
     return response.data
   } catch (error: any) {
     console.error('获取URL失败:', error.message)
+    // 如果是限流错误，给出更明确的提示
+    if (error?.message?.includes('接口调用过于频繁') || error?.message?.includes('请等待')) {
+      throw new Error(`获取下载链接失败：${error.message}（重试时不会发送网络请求，因为已被限流器阻止）`)
+    }
     throw error
   }
 }

@@ -16,6 +16,17 @@
       </div>
       <div class="flex items-center gap-2">
         <button
+          v-if="downloadStore.tasks.length > 0"
+          @click="handleClearAll"
+          class="text-xs px-2 py-1 rounded transition-colors"
+          :class="themeStore.isDark 
+            ? 'text-[#e74c3c] hover:text-white hover:bg-[#e74c3c]/20' 
+            : 'text-[#e74c3c] hover:text-white hover:bg-[#e74c3c]/10'"
+          title="清除全部"
+        >
+          <i class="fas fa-trash-alt mr-1"></i>清除全部
+        </button>
+        <button
           v-if="downloadStore.completedTasks.length > 0"
           @click="downloadStore.clearCompletedTasks()"
           class="text-xs px-2 py-1 rounded transition-colors"
@@ -56,7 +67,7 @@
 
       <div v-else class="space-y-2.5">
         <div
-          v-for="task in downloadStore.tasks"
+          v-for="task in sortedTasks"
           :key="task.id"
           class="rounded-lg p-3.5 border transition-all hover:shadow-md"
           :class="[
@@ -282,6 +293,7 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useDownloadStore } from '../stores/download'
 import { useThemeStore } from '../stores/theme'
 import { useDownload } from '../composables/useDownload'
@@ -290,7 +302,24 @@ import type { DownloadTask } from '../stores/download'
 
 const downloadStore = useDownloadStore()
 const themeStore = useThemeStore()
-const { retryDownload, cancelDownload } = useDownload()
+const { retryDownload, cancelDownload, cancelAllDownloads } = useDownload()
+
+// 排序任务：正在下载的排在前面，等待中的在后面，其他状态按原顺序
+const sortedTasks = computed(() => {
+  const tasks = [...downloadStore.tasks]
+  return tasks.sort((a, b) => {
+    // 正在下载的排在前面
+    if (a.status === 'downloading' && b.status !== 'downloading') return -1
+    if (a.status !== 'downloading' && b.status === 'downloading') return 1
+    
+    // 等待中的排在下载中后面
+    if (a.status === 'pending' && b.status !== 'pending' && b.status !== 'downloading') return -1
+    if (a.status !== 'pending' && b.status === 'pending' && a.status !== 'downloading') return 1
+    
+    // 其他状态保持原顺序（按添加时间，新任务在前）
+    return 0
+  })
+})
 
 function getStatusIcon(status: DownloadTask['status']): string {
   switch (status) {
@@ -363,6 +392,15 @@ async function openFileLocation(filePath: string) {
       console.error('打开文件位置失败:', error)
     }
   }
+}
+
+// 清空全部任务（先取消所有正在下载的任务）
+async function handleClearAll() {
+  // 先取消所有正在进行的下载
+  await cancelAllDownloads()
+  
+  // 然后清空任务列表
+  downloadStore.clearAllTasks()
 }
 </script>
 

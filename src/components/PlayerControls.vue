@@ -513,7 +513,6 @@ async function handleExploreRadar() {
       showNotification(`探索雷达：新增${appended}首 ${randomGenre} 歌曲`, 'success')
     }
 
-    // Solara 行为：点击探索雷达后，自动播放本次搜索结果中的第一首歌（并获取歌词与封面）
     const firstCandidate = candidates[0]
     if (firstCandidate) {
       const targetIndex = (playlistStore.songs || []).findIndex(

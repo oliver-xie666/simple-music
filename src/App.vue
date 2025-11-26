@@ -132,9 +132,13 @@ const { cancelAllDownloads } = useDownload()
 const audioRef = ref<HTMLAudioElement | null>(null)
 // 标记是否正在切换音质，用于阻止进度更新导致的闪烁
 const isQualitySwitching = ref(false)
+// 标记是否是用户主动播放（用于判断是否显示播放失败通知）
+const isUserInitiatedPlay = ref(false)
+// 标记是否正在从存储恢复播放状态（启动时）
+const isRestoringFromStorage = ref(true)
 
 /**
- * 等待音频元数据加载完成（参考 Solara 的 waitForAudioReady）
+ * 等待音频元数据加载完成（
  * 只等待 loadedmetadata 事件，不等待 canplay，以实现立即播放
  */
 function waitForAudioReady(player: HTMLAudioElement): Promise<void> {
@@ -166,9 +170,17 @@ function waitForAudioReady(player: HTMLAudioElement): Promise<void> {
 watch(() => playerStore.isPlaying, (playing: boolean) => {
   if (audioRef.value) {
     if (playing) {
+      // 如果不是从存储恢复，则标记为用户主动播放
+      if (!isRestoringFromStorage.value) {
+        isUserInitiatedPlay.value = true
+      }
       audioRef.value.play().catch((err: any) => {
         console.error('播放失败:', err)
         playerStore.pause()
+        // 只有在用户主动播放时才显示错误通知
+        if (isUserInitiatedPlay.value && !isRestoringFromStorage.value) {
+          showNotification('播放失败，请尝试其他音质', 'error')
+        }
       })
     } else {
       audioRef.value.pause()
@@ -211,7 +223,7 @@ watch(() => playerStore.currentSong, async (song: any, oldSong: any) => {
       playerStore.setCurrentTime(pendingTime)
     }
     
-    // 先暂停当前播放（参考 Solara：释放资源，加快切换）
+    // 先暂停当前播放
     audioRef.value.pause()
     
     // 设置新的音频源
@@ -219,7 +231,7 @@ watch(() => playerStore.currentSong, async (song: any, oldSong: any) => {
     audioRef.value.load()
     
     try {
-      // 等待元数据加载完成（参考 Solara：只等待 loadedmetadata，不等待 canplay）
+      // 等待元数据加载完成
       await waitForAudioReady(audioRef.value)
       
       // 元数据加载完成后，立即设置进度并播放
@@ -378,6 +390,10 @@ function onCanPlay() {
       audioRef.value.play().catch((err: any) => {
         console.error('播放失败(onCanPlay):', err)
         playerStore.pause()
+        // 只有在用户主动播放时才显示错误通知
+        if (isUserInitiatedPlay.value && !isRestoringFromStorage.value) {
+          showNotification('播放失败，请尝试其他音质', 'error')
+        }
       })
     }
   }
@@ -386,11 +402,20 @@ function onCanPlay() {
 function onError() {
   playerStore.setLoading(false)
   playerStore.pause()
-  showNotification('播放失败，请尝试其他音质', 'error')
+  // 只有在用户主动播放时才显示错误通知（启动时自动恢复播放不显示）
+  if (isUserInitiatedPlay.value && !isRestoringFromStorage.value) {
+    showNotification('播放失败，请尝试其他音质', 'error')
+  }
 }
 
 // 初始化
-loadFromStorage()
+loadFromStorage().then(() => {
+  // 恢复完成后，标记为已完成恢复
+  // 使用 setTimeout 确保所有恢复操作都已完成
+  setTimeout(() => {
+    isRestoringFromStorage.value = false
+  }, 1000)
+})
 if (audioRef.value) {
   audioRef.value.volume = playerStore.volume
 }

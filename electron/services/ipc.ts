@@ -112,9 +112,16 @@ export function setupIpcHandlers() {
       }
 
       // 获取音乐URL
-      const urlResult = await getSongUrl(id, source, quality)
+      let urlResult
+      try {
+        urlResult = await getSongUrl(id, source, quality)
+      } catch (error: any) {
+        // 如果是限流错误，错误信息已经在 getSongUrl 中处理了
+        throw error
+      }
+      
       if (!urlResult || !urlResult.url) {
-        throw new Error('无法获取下载链接')
+        throw new Error('无法获取下载链接：接口返回的URL为空')
       }
       
       const musicUrl = urlResult.url

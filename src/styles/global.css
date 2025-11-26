@@ -40,7 +40,7 @@ body.dark-mode ::-webkit-scrollbar-thumb {
   background: #14b8a6;
 }
 
-/* --- 播放列表项图标样式（参考 Solara 项目） --- */
+/* --- 播放列表项图标样式 --- */
 
 .playlist-row {
   padding: 10px 12px;
@@ -89,7 +89,7 @@ body.dark-mode ::-webkit-scrollbar-thumb {
 
 .playlist-item-download {
   right: 42px;
-  background: #2ecc71; /* var(--success-color) in Solara */
+  background: #2ecc71; 
   color: #ffffff;
   border-color: rgba(46, 204, 113, 0.5);
   box-shadow: 0 4px 10px rgba(46, 204, 113, 0.2);

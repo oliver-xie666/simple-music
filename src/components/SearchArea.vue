@@ -74,7 +74,7 @@
         style="backdrop-filter: blur(18px);"
       >
         <div class="flex flex-col gap-4">
-      <!-- 工具栏：播放全部和导入已选 -->
+      <!-- 工具栏：播放全部、全选/全不选、下载已选、导入已选 -->
       <div 
         class="flex flex-wrap gap-3 justify-between items-center pb-3 border-b"
         :class="themeStore.isDark ? 'border-white/10' : 'border-black/10'"
@@ -99,19 +99,60 @@
           </span>
         </button>
 
-        <!-- 右侧：导入已选 -->
-        <button
-          @click="handleImportToPlaylist"
-          :disabled="searchStore.selectedIndices.size === 0"
-          class="flex items-center gap-2 px-4 py-2 rounded-full border-none cursor-pointer transition-all duration-200 text-white shadow-[0_6px_16px_rgba(26,188,156,0.3)]"
-          :class="searchStore.selectedIndices.size === 0 ? 'bg-[#7f8c8d]/50 cursor-not-allowed' : 'bg-[#1abc9c] hover:bg-[#12836d]'"
-        >
-          <i class="fas fa-file-import text-0.9em"></i>
-          <span class="text-0.9em font-semibold">导入已选</span>
-          <span v-if="searchStore.selectedIndices.size > 0" class="text-0.85em font-medium ml-1">
-            ({{ searchStore.selectedIndices.size }})
-          </span>
-        </button>
+        <!-- 右侧：全选/全不选、下载已选、导入已选 -->
+        <div class="flex items-center gap-2 ml-auto">
+          <!-- 全选/全不选 -->
+          <button
+            @click="handleToggleSelectAll"
+            class="flex items-center gap-2 px-4 py-2 rounded-full border-none cursor-pointer transition-all duration-200 text-white shadow-[0_6px_16px_rgba(46,204,113,0.3)] bg-[#2ecc71] hover:bg-[#27ae60]"
+            title="全选/全不选"
+          >
+            <i 
+              :class="isAllSelected ? 'fas fa-check-square' : 'fas fa-square'"
+              class="text-0.9em"
+            ></i>
+            <span class="text-0.9em font-semibold">
+              {{ isAllSelected ? '全不选' : '全选' }}
+            </span>
+          </button>
+
+          <!-- 下载已选 -->
+          <button
+            ref="downloadSelectedButtonRef"
+            @click="handleDownloadSelected"
+            :disabled="searchStore.selectedIndices.size === 0 || isDownloadingSelected"
+            class="flex items-center gap-2 px-4 py-2 rounded-full border-none cursor-pointer transition-all duration-200 text-white shadow-[0_6px_16px_rgba(46,204,113,0.3)]"
+            :class="searchStore.selectedIndices.size === 0 || isDownloadingSelected ? 'bg-[#7f8c8d]/50 cursor-not-allowed' : 'bg-[#2ecc71] hover:bg-[#27ae60]'"
+            title="下载已选歌曲"
+          >
+            <i 
+              v-if="isDownloadingSelected"
+              class="fas fa-spinner fa-spin text-0.9em"
+            ></i>
+            <i 
+              v-else
+              class="fas fa-download text-0.9em"
+            ></i>
+            <span class="text-0.9em font-semibold">下载已选</span>
+            <span v-if="searchStore.selectedIndices.size > 0" class="text-0.85em font-medium ml-1">
+              ({{ searchStore.selectedIndices.size }})
+            </span>
+          </button>
+
+          <!-- 导入已选 -->
+          <button
+            @click="handleImportToPlaylist"
+            :disabled="searchStore.selectedIndices.size === 0"
+            class="flex items-center gap-2 px-4 py-2 rounded-full border-none cursor-pointer transition-all duration-200 text-white shadow-[0_6px_16px_rgba(26,188,156,0.3)]"
+            :class="searchStore.selectedIndices.size === 0 ? 'bg-[#7f8c8d]/50 cursor-not-allowed' : 'bg-[#1abc9c] hover:bg-[#12836d]'"
+          >
+            <i class="fas fa-file-import text-0.9em"></i>
+            <span class="text-0.9em font-semibold">导入已选</span>
+            <span v-if="searchStore.selectedIndices.size > 0" class="text-0.85em font-medium ml-1">
+              ({{ searchStore.selectedIndices.size }})
+            </span>
+          </button>
+        </div>
 
         <!-- 导入下拉菜单 - 已注释 -->
         <!-- <div class="relative">
@@ -233,14 +274,14 @@
                     ? (themeStore.isDark ? 'text-[#9ff3e2]' : 'text-[#1abc9c]')
                     : (themeStore.isDark ? 'text-white/70' : 'text-[#7f8c8d]')"
                 >
-                  <span class="truncate">{{ formatArtist(song.artist) }}</span>
+                  <span class="truncate">{{ normalizeArtistField(song.artist) }}</span>
                   <span 
                     class="flex-shrink-0"
                     :class="themeStore.isDark ? 'text-white/30' : 'text-[#c0c8cc]'"
                   >
                     -
                   </span>
-                  <span class="truncate">{{ formatAlbum(song.album) }}</span>
+                  <span class="truncate">{{ normalizeAlbumField(song.album) }}</span>
                 </div>
               </div>
 
@@ -389,12 +430,14 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useSearchStore } from '../stores/search'
 import { useThemeStore } from '../stores/theme'
+import { usePlayerStore } from '../stores/player'
 import { useSearch } from '../composables/useSearch'
 import { usePlayer } from '../composables/usePlayer'
 import { useNotification } from '../composables/useNotification'
 import { useDownload } from '../composables/useDownload'
 import type { MusicSource } from '../types'
 import { QUALITY_OPTIONS } from '../utils/quality-options'
+import { normalizeAlbumField, normalizeArtistField } from '../utils/song-utils'
 import QualityMenuList from './QualityMenuList.vue'
 
 const searchStore = useSearchStore()
@@ -403,7 +446,7 @@ const searchComposable = useSearch()
 const { search: performSearch, playAllSearchResults: playAll, importSelectedSearchResults, toggleSearchResultSelection, goToPage, setSearchLimit } = searchComposable
 const { playAtIndex } = usePlayer()
 const { show: showNotification } = useNotification()
-const { downloadSong } = useDownload()
+const { downloadSong, downloadSongs } = useDownload()
 const searchQuery = ref('')
 const showMenu = ref(false)
 // const showImportMenu = ref(false)
@@ -413,11 +456,19 @@ const qualityOptions = QUALITY_OPTIONS
 const jumpPage = ref(1)
 const searchAreaRef = ref<HTMLElement | null>(null)
 const songRefs = ref<Record<number, HTMLElement>>({})
+const downloadSelectedButtonRef = ref<HTMLElement | null>(null)
 const skeletonItemCount = 6
 const playAllLoading = ref(false)
 const playingSongKey = ref<string | null>(null)
+const isDownloadingSelected = ref(false)
 const showResultsDropdown = computed(() => searchStore.isDropdownVisible && (searchStore.isLoading || searchStore.results.length > 0))
 const skeletonBaseClass = computed(() => themeStore.isDark ? 'skeleton-block skeleton-dark' : 'skeleton-block skeleton-light')
+
+// 全选状态
+const isAllSelected = computed(() => {
+  return searchStore.results.length > 0 && 
+         searchStore.selectedIndices.size === searchStore.results.length
+})
 
 const activeDownloadSong = computed(() => {
   if (showDownloadMenu.value === null) return null
@@ -535,6 +586,51 @@ function handleImportToPlaylist() {
   hideResultsDropdown()
 }
 
+// 全选/全不选
+function handleToggleSelectAll() {
+  if (isAllSelected.value) {
+    // 全不选
+    searchStore.selectedIndices.clear()
+  } else {
+    // 全选
+    searchStore.results.forEach((_, index) => {
+      searchStore.selectedIndices.add(index)
+    })
+  }
+}
+
+// 下载已选
+async function handleDownloadSelected() {
+  if (searchStore.selectedIndices.size === 0) {
+    showNotification('请先选择要下载的歌曲', 'warning')
+    return
+  }
+
+  if (isDownloadingSelected.value) {
+    return
+  }
+
+  isDownloadingSelected.value = true
+  try {
+    // 获取选中的歌曲
+    const indices = Array.from(searchStore.selectedIndices).filter(
+      idx => idx >= 0 && idx < searchStore.results.length
+    )
+    const selectedSongs = indices.map(idx => searchStore.results[idx]).filter(Boolean)
+
+    // 批量下载（使用当前选择的音质）
+    // 传递批量下载按钮元素，只触发一个动画
+    await downloadSongs(selectedSongs, usePlayerStore().quality, undefined, downloadSelectedButtonRef.value || undefined)
+  } catch (error: any) {
+    console.error('批量下载失败:', error)
+    showNotification(error?.message || '批量下载失败', 'error')
+  } finally {
+    isDownloadingSelected.value = false
+    // 下载完成后隐藏下拉框
+    hideResultsDropdown()
+  }
+}
+
 // function handleImportToFavorites() {
 //   store.importSelectedSearchResults('favorites')
 //   showImportMenu.value = false
@@ -552,40 +648,6 @@ async function handleDownload(song: any, quality: string) {
 
   // 使用新的下载系统
   await downloadSong(song, quality as any, sourceElement || undefined)
-}
-
-function formatArtist(artist: any): string {
-  if (!artist) return '未知艺术家'
-  if (typeof artist === 'string') return artist
-  if (Array.isArray(artist)) {
-    const names = artist.map(normalizeArtistName).filter(Boolean)
-    return names.length ? names.join(' / ') : '未知艺术家'
-  }
-  if (typeof artist === 'object') {
-    if (Array.isArray((artist as any).artists)) return formatArtist((artist as any).artists)
-    if (Array.isArray((artist as any).ar)) return formatArtist((artist as any).ar)
-    if (Array.isArray((artist as any).data)) return formatArtist((artist as any).data)
-    if ('name' in artist && artist.name) return String(artist.name)
-  }
-  return String(artist)
-}
-
-function normalizeArtistName(entry: any): string {
-  if (!entry) return ''
-  if (typeof entry === 'string') return entry
-  if (typeof entry === 'object') {
-    return entry.name || entry.title || entry.artist || ''
-  }
-  return String(entry)
-}
-
-function formatAlbum(album: any): string {
-  if (!album) return '未知专辑'
-  if (typeof album === 'string') return album
-  if (typeof album === 'object') {
-    return album.name || album.title || album.album || '未知专辑'
-  }
-  return String(album)
 }
 
 function handlePreviousPage() {

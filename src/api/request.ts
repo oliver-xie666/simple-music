@@ -1,4 +1,5 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios'
+import { rateLimiter } from '../utils/rate-limiter'
 
 // API 配置
 const API_BASE_URL = 'https://music-api.gdstudio.xyz/api.php'
@@ -65,12 +66,26 @@ export interface ApiRequestParams {
  * 统一的 API 请求方法
  * @param params API 参数对象
  * @param config 额外的 axios 配置
+ * @param skipRateLimit 是否跳过限流检查（默认false）
  * @returns Promise<AxiosResponse>
  */
-export function apiRequest(
+export async function apiRequest(
   params: ApiRequestParams,
-  config?: AxiosRequestConfig
+  config?: AxiosRequestConfig,
+  skipRateLimit: boolean = false
 ): Promise<AxiosResponse> {
+  // 检查限流（除非明确跳过）
+  if (!skipRateLimit) {
+    if (!rateLimiter.canRequest()) {
+      const nextTime = rateLimiter.getNextAvailableTime()
+      const minutes = Math.ceil(nextTime / 60000)
+      throw new Error(`接口调用过于频繁，请等待 ${minutes} 分钟后再试`)
+    }
+    
+    // 记录请求
+    rateLimiter.recordRequest()
+  }
+
   // 自动添加签名
   const finalParams = {
     ...params,
