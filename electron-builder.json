@@ -2,7 +2,7 @@
   "appId": "com.wetdreamboy.simplemusic",
   "productName": "Simple Music",
   "directories": {
-    "output": "release"
+  "output": "release"
   },
   "files": [
     "dist/**/*",
@@ -46,6 +46,7 @@
     "oneClick": false,
     "allowToChangeInstallationDirectory": true,
     "createDesktopShortcut": true
-  }
+  },
+  "publish": "never"
 }
 
