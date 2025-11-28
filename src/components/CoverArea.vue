@@ -226,13 +226,13 @@ function updateQualityMenuPosition() {
       }
     }
     
-    // 移动端竖屏模式：菜单与按钮居中对齐（参考Solara的实现）
+    // 移动端竖屏模式：菜单与按钮居中对齐
     const menuWidth = qualityMenuRef.value!.offsetWidth || 180
     const isPortraitOrientation = viewportHeight >= viewportWidth
     
     let left: number
     if (isPortraitOrientation) {
-      // 竖屏：菜单中心与按钮中心对齐（参考Solara: toggleRect.left + (toggleRect.width - menuWidth) / 2）
+      // 竖屏：菜单中心与按钮中心对齐
       left = buttonRect.left + (buttonRect.width / 2) - (menuWidth / 2)
     } else {
       // 横屏：菜单右边缘与按钮右边缘对齐

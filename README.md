@@ -63,6 +63,27 @@ npm run build:electron
 
 会先构建前端代码，然后使用 electron-builder 打包成桌面应用。
 
+### 📦 多平台发行包
+
+使用 `npm run build:electron:release` 会根据当前系统自动生成对应平台的 **x64 / arm64** 安装包（输出在 `release/` 目录）。  
+如果需要覆盖默认目标，可追加 electron-builder 参数，例如：
+
+```bash
+npm run build:electron:release -- --linux AppImage deb --x64 --arm64
+npm run build:electron:release -- --mac dmg --x64 --arm64
+npm run build:electron:release -- --win nsis --x64 --arm64
+```
+
+> 跨平台打包需在相应操作系统上执行，建议使用 GitHub Actions 统一产出多平台安装包。
+
+## 🧾 发布流程
+
+1. **准备版本号**：遵循 conventional commits，执行 `npm run release -- --release-as <version>` 自动更新 `CHANGELOG.md`、`package.json` 以及打上 Git tag。  
+2. **推送到远端**：`npm run release:publish` 将推送提交与标签，触发 GitHub Actions。
+3. **获取产物**：`.github/workflows/release.yml` 会在 `v*` 标签推送后，分别在 Linux / macOS / Windows 上构建 x64 & arm64 安装包并发布到 Release。
+
+> 如需仅刷新 Changelog 可运行 `npx standard-version --skip.tag --skip.commit --release-as <version>`，然后手动处理提交和 Tag。
+
 ## 📦 技术栈
 
 - **Electron** - 跨平台桌面应用框架（可选）
