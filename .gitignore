@@ -32,4 +32,7 @@ npm-debug.log*
 
 # Electron
 release/
+infra/
+scripts/
+
 
