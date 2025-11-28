@@ -1,42 +1,80 @@
 <template>
-  <div id="app" class="min-h-screen flex items-center justify-center p-5 m-0 box-border bg-[#0f0f0f] transition-colors duration-500" :class="themeStore.isDark ? 'dark' : ''">
+  <div 
+    id="app" 
+    class="min-h-screen flex items-center justify-center m-0 bg-[#0f0f0f] transition-colors duration-500" 
+    :class="[
+      themeStore.isDark ? 'dark' : '',
+      mobile.isMobileView.value ? mobileAppClasses : desktopAppClasses
+    ]"
+  >
     <!-- 背景渐变层 -->
-    <div class="fixed inset-0 pointer-events-none z-0">
+    <div 
+      class="fixed inset-0 pointer-events-none z-0 transition-opacity duration-[850ms]"
+      :class="mobile.isMobileView.value ? 'hidden' : ''"
+    >
       <div 
-        class="absolute inset-0 transition-opacity duration-[850ms]" 
-        :style="{ 
-          background: themeStore.currentGradient,
-          opacity: 1 
-        }"
+        class="absolute inset-0 transition-opacity duration-[850ms] opacity-100" 
+        :style="{ background: themeStore.currentGradient }"
       ></div>
     </div>
 
-    <!-- 主容器 - 16:9 Grid 布局 -->
+    <!-- 移动端背景层（仅在竖屏时显示） -->
+    <div 
+      v-if="mobile.isMobileView.value"
+      class="background-stage fixed inset-0 pointer-events-none z-[-4]"
+    >
+      <div 
+        class="background-stage__layer absolute inset-0 transition-opacity duration-[850ms] opacity-100 [transform:scale(1.12)] [filter:saturate(112%)]" 
+        :style="backgroundStageLayerStyle"
+      ></div>
+    </div>
+
+
+    <!-- 主容器 -->
     <div 
       id="mainContainer"
-      class="relative z-1 w-full mx-auto rounded-6 p-7.5 grid gap-5 transition-all duration-500 border shadow-[0_20px_60px_rgba(0,0,0,0.1)]"
+      class="z-1 w-full mx-auto rounded-6 p-7.5 grid gap-5 transition-all duration-500 border shadow-[0_20px_60px_rgba(0,0,0,0.1)]"
       :class="[
-        themeStore.isDark ? 'bg-[#1e1e1e]/60 border-white/15' : 'bg-white/60 border-black/10'
+        themeStore.isDark ? 'bg-[#1e1e1e]/60 border-white/15' : 'bg-white/60 border-black/10',
+        mobile.isMobileView.value ? ['mobile-container', mobileMainContainerClasses] : desktopMainContainerClasses
       ]"
-      :style="{
-        maxWidth: 'min(1400px, 100%)',
-        height: '85vh',
-        maxHeight: '900px',
-        gridTemplateAreas: `
-          'header'
-          'search'
-          'cover'
-          'playlist'
-          'lyrics'
-          'controls'
-        `,
-        gridTemplateRows: 'auto auto 1fr 1fr 1fr auto',
-        gridTemplateColumns: '1fr',
-        backdropFilter: 'blur(10px)'
-      }"
     >
-      <!-- Header -->
-      <div class="text-center relative" style="grid-area: header;">
+      <!-- 移动端容器高光效果 -->
+      <div 
+        v-if="mobile.isMobileView.value"
+        class="absolute inset-0 pointer-events-none rounded-[32px] bg-[radial-gradient(100%_100%_at_50%_0%,rgba(255,255,255,0.08)_0%,transparent_65%)] opacity-60"
+      ></div>
+      <!-- 移动端工具栏 -->
+      <div 
+        v-if="mobile.isMobileView.value"
+        class="mobile-toolbar flex items-center justify-between mt-[clamp(4px,3vw,12px)] z-2"
+      >
+        <button 
+          @click="handleExploreRadar"
+          class="w-10 h-10 rounded-full border border-white/12 bg-white/4 text-[#f5f7fa] backdrop-blur-md flex items-center justify-center cursor-pointer transition-all duration-250"
+        >
+          <i class="fas fa-satellite-dish text-sm"></i>
+        </button>
+        <div 
+          class="text-[1.05rem] font-semibold text-white tracking-[0.04em] text-center"
+        >
+          Simple Music
+        </div>
+        <div class="flex items-center gap-2.5">
+          <button 
+            @click="mobile.toggleSearch()"
+            class="w-10 h-10 rounded-full border border-white/12 bg-white/4 text-[#f5f7fa] backdrop-blur-md flex items-center justify-center cursor-pointer transition-all duration-250"
+          >
+            <i class="fas fa-search text-sm"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Header (桌面端) -->
+      <div 
+        v-if="!mobile.isMobileView.value"
+        class="text-center relative [grid-area:header]" 
+      >
         <h1 class="m-0 text-4xl font-bold text-[#1abc9c] tracking-wide">Simple Music</h1>
         <div class="text-0.9em mt-2.5 italic" :class="themeStore.isDark ? 'text-[#95a5a6]' : 'text-[#7f8c8d]'">
           Made by oliver-xie666，仅供学习交流使用，请支持正版音乐！
@@ -44,38 +82,112 @@
         <div class="absolute top-0 right-0">
           <button 
             @click="themeStore.toggleTheme" 
-            class="w-11 h-11 rounded-4 border flex items-center justify-center cursor-pointer transition-all duration-300 relative overflow-hidden"
+            class="w-11 h-11 rounded-4 border flex items-center justify-center cursor-pointer transition-all duration-300 relative overflow-hidden backdrop-blur-[12px] shadow-[0_8px_20px_rgba(0,0,0,0.12)]"
             :class="[
               themeStore.isDark ? 'bg-[#242a36]/90 border-[#1abc9c]/45' : 'bg-white/85 border-black/10',
             ]"
-            style="backdrop-filter: blur(12px); box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);"
           >
             <i 
               class="fas fa-sun absolute text-lg text-[#f5a623] transition-all duration-350"
-              :style="!themeStore.isDark ? 'opacity: 1; transform: scale(1) rotate(0deg)' : 'opacity: 0; transform: scale(0.6) rotate(-20deg)'"
+              :class="!themeStore.isDark ? 'opacity-100 scale-100 rotate-0' : 'opacity-0 scale-[0.6] -rotate-[20deg]'"
             ></i>
             <i 
               class="fas fa-moon absolute text-lg text-[#a29bfe] transition-all duration-350"
-              :style="themeStore.isDark ? 'opacity: 1; transform: scale(1) rotate(0deg)' : 'opacity: 0; transform: scale(0.6) rotate(20deg)'"
+              :class="themeStore.isDark ? 'opacity-100 scale-100 rotate-0' : 'opacity-0 scale-[0.6] rotate-[20deg]'"
             ></i>
           </button>
         </div>
       </div>
 
-      <!-- Search Area -->
+      <!-- Search Area (桌面端) -->
+      <SearchArea v-if="!mobile.isMobileView.value" />
+
+      <!-- 移动端主内容区 -->
+      <div 
+        v-if="mobile.isMobileView.value"
+        class="main-content flex flex-col gap-[clamp(16px,5vw,28px)] z-[1] flex-1 justify-start min-h-0"
+      >
+        <!-- Cover Area -->
+        <CoverArea />
+
+        <!-- Player Controls -->
+        <PlayerControls />
+      </div>
+
+      <!-- 桌面端内容 -->
+      <template v-if="!mobile.isMobileView.value">
+        <!-- Cover Area -->
+        <CoverArea />
+
+        <!-- Playlist Area -->
+        <PlaylistArea />
+
+        <!-- Lyrics Area -->
+        <LyricsArea />
+
+        <!-- Player Controls -->
+        <PlayerControls />
+      </template>
+    </div>
+
+    <!-- 移动端搜索区域 (Teleported，以避免占据布局) -->
+    <Teleport to="body" v-if="mobile.isMobileView.value">
       <SearchArea />
+    </Teleport>
 
-      <!-- Cover Area -->
-      <CoverArea />
+    <!-- 移动端覆盖层遮罩 -->
+    <div 
+      v-if="mobile.isMobileView.value"
+      @click="mobile.closeAllOverlays()"
+      class="mobile-overlay-scrim fixed inset-0 z-[40] transition-opacity duration-350 pointer-events-none bg-[rgba(4,6,10,0.55)]"
+      :class="[
+        mobile.isSearchOpen.value || mobile.isPanelOpen.value ? 'opacity-100 pointer-events-auto' : 'opacity-0'
+      ]"
+    ></div>
 
-      <!-- Playlist Area -->
-      <PlaylistArea />
+    <!-- 移动端面板 -->
+    <div 
+      v-if="mobile.isMobileView.value"
+      class="mobile-panel fixed left-1/2 bottom-0 z-[400] w-full max-w-[420px] rounded-t-[28px] transition-transform duration-450 pointer-events-auto bg-[rgba(13,16,24,0.96)] backdrop-blur-[28px] px-[clamp(18px,6vw,28px)] pb-[calc(env(safe-area-inset-bottom,0px)+clamp(22px,7vw,32px))] pt-[18px] shadow-[0_-28px_60px_rgba(0,0,0,0.6)] h-[calc(100dvh_-_clamp(120px,34vw,200px))] max-h-[calc(100dvh_-_clamp(120px,34vw,200px))] flex flex-col gap-[18px] overflow-hidden overscroll-contain touch-pan-y"
+      :class="[
+        mobile.isPanelOpen.value ? 'translate-x-[-50%] translate-y-0' : 'translate-x-[-50%] translate-y-[110%]'
+      ]"
+    >
+      <div class="flex flex-col gap-2">
+        <!-- 拖拽手柄 -->
+        <div 
+          class="w-14 h-1 rounded-full mx-auto mb-2 bg-white/28"
+        ></div>
+        
+        <!-- 标签页 -->
+        <div class="flex items-center gap-2 mb-2">
+          <div class="flex items-center gap-2 flex-1">
+            <span class="text-white text-base font-semibold">播放列表</span>
+          </div>
+          <button
+            @click="mobile.closePanel()"
+            class="w-9 h-9 rounded-full border flex items-center justify-center cursor-pointer transition-all duration-200"
+            :class="themeStore.isDark ? 'bg-white/8 border-white/18 text-white hover:bg-white/14' : 'bg-white/8 border-white/18 text-white hover:bg-white/14'"
+          >
+            <i class="fas fa-times text-sm"></i>
+          </button>
+        </div>
+      </div>
 
-      <!-- Lyrics Area -->
-      <LyricsArea />
-
-      <!-- Player Controls -->
-      <PlayerControls />
+      <!-- 面板内容 -->
+      <div class="flex-1 overflow-hidden min-h-0 flex flex-col">
+        <!-- 播放列表 -->
+        <div 
+          class="playlist flex flex-col flex-1 min-h-0 bg-transparent border-none p-0 max-h-none"
+        >
+          <div 
+            class="playlist-scroll flex-1 overflow-y-auto pr-[6px] mr-[-6px] overscroll-contain touch-pan-y min-h-0"
+            style="-webkit-overflow-scrolling: touch;"
+          >
+            <PlaylistArea />
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- 通知 -->
@@ -107,14 +219,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ref, watch, onMounted, onBeforeUnmount, provide, computed } from 'vue'
 import { usePlayerStore } from './stores/player'
+import { usePlaylistStore } from './stores/playlist'
 import { useThemeStore } from './stores/theme'
 import { useLyricsStore } from './stores/lyrics'
 import { usePlayer } from './composables/usePlayer'
 import { useNotification } from './composables/useNotification'
 import { useStorage } from './composables/useStorage'
 import { useDownload } from './composables/useDownload'
+import { useMobile } from './composables/useMobile'
 import SearchArea from './components/SearchArea.vue'
 import CoverArea from './components/CoverArea.vue'
 import PlaylistArea from './components/PlaylistArea.vue'
@@ -122,12 +236,129 @@ import LyricsArea from './components/LyricsArea.vue'
 import PlayerControls from './components/PlayerControls.vue'
 
 const playerStore = usePlayerStore()
+const playlistStore = usePlaylistStore()
 const themeStore = useThemeStore()
 const lyricsStore = useLyricsStore()
-const { playNext, hydrateCurrentSongArtwork } = usePlayer()
+const { playNext, hydrateCurrentSongArtwork, playAtIndex } = usePlayer()
 const { show: showNotification, notification } = useNotification()
 const { loadFromStorage, saveToStorage, schedulePlaybackSnapshot } = useStorage()
 const { cancelAllDownloads } = useDownload()
+const mobile = useMobile()
+
+// 提供移动端状态给子组件
+provide('isMobileLayout', mobile.isMobileView)
+provide('mobile', mobile)
+
+const desktopAppClasses = 'p-5 box-border'
+
+const mobileAppClasses = computed(() =>
+  mobile.isMobileView.value
+    ? 'mobile-view fixed inset-0 w-full h-[var(--mobile-vh,100dvh)] min-h-[var(--mobile-vh,100dvh)] overflow-hidden touch-pan-y overscroll-none flex justify-center items-stretch px-[clamp(12px,5vw,24px)] pt-[calc(env(safe-area-inset-top,0px)+12px)] pb-[calc(env(safe-area-inset-bottom,0px)+20px)] bg-[radial-gradient(120%_140%_at_50%_0%,#1b1d24_0%,#0d1018_70%,#05070c_100%)] text-[#f2f5f9] bg-fixed box-border'
+    : ''
+)
+
+const mobileMainContainerClasses = computed(() =>
+  mobile.isMobileView.value
+    ? 'max-w-[min(420px,_calc(100vw_-_clamp(24px,8vw,48px)))] w-full bg-[linear-gradient(180deg,_rgba(27,29,36,0.92),_rgba(7,9,14,0.95))] rounded-[32px] px-[clamp(16px,5vw,28px)] pt-[calc(env(safe-area-inset-top,0px)+clamp(18px,6vw,32px))] pb-[calc(env(safe-area-inset-bottom,0px)+clamp(22px,7vw,32px))] shadow-[0_32px_90px_rgba(0,0,0,0.65)] flex flex-col gap-[clamp(12px,4vw,24px)] overflow-visible flex-1 min-h-[calc(var(--mobile-vh,100dvh)-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px))] box-border'
+    : ''
+)
+
+const desktopMainContainerClasses = 'max-w-[min(1400px,100%)] h-[85vh] max-h-[900px] grid backdrop-blur-[10px]'
+
+const backgroundStageLayerStyle = computed(() => ({
+  background: themeStore.currentGradient,
+  WebkitMaskImage: 'radial-gradient(circle at 50% calc(50% + var(--mobile-ring-vertical-shift, -24px)), transparent calc(var(--mobile-ring-inner-radius, 280px)), rgba(0, 0, 0, 0.92) calc(var(--mobile-ring-inner-radius, 280px) + var(--mobile-ring-feather, 120px)), rgba(0, 0, 0, 1) 100%)',
+  maskImage: 'radial-gradient(circle at 50% calc(50% + var(--mobile-ring-vertical-shift, -24px)), transparent calc(var(--mobile-ring-inner-radius, 280px)), rgba(0, 0, 0, 0.92) calc(var(--mobile-ring-inner-radius, 280px) + var(--mobile-ring-feather, 120px)), rgba(0, 0, 0, 1) 100%)',
+  WebkitMaskRepeat: 'no-repeat',
+  maskRepeat: 'no-repeat',
+  WebkitMaskSize: 'cover',
+  maskSize: 'cover',
+  WebkitMaskPosition: 'center',
+  maskPosition: 'center'
+}))
+
+// 探索雷达处理函数
+async function handleExploreRadar() {
+  if (isExploring.value) return
+  isExploring.value = true
+
+  try {
+    const EXPLORE_RADAR_GENRES = ['流行', '摇滚', '古典音乐', '民谣', '电子', '爵士', '说唱', '乡村', '蓝调', 'R&B', '金属', '嘻哈', '轻音乐']
+    const EXPLORE_RADAR_SOURCES = ['netease', 'kuwo']
+    
+    const randomGenre = EXPLORE_RADAR_GENRES[Math.floor(Math.random() * EXPLORE_RADAR_GENRES.length)]
+    const source = EXPLORE_RADAR_SOURCES[Math.floor(Math.random() * EXPLORE_RADAR_SOURCES.length)]
+
+    const { searchMusic } = await import('./api')
+    const response = await searchMusic(randomGenre, source, 1, 30)
+    
+    const data = response?.data
+
+    if (!Array.isArray(data) || data.length === 0) {
+      showNotification('探索雷达：未找到歌曲', 'error')
+      return
+    }
+
+    const { normalizeArtistField } = await import('./utils/song-utils')
+    const existingKeys = new Set(
+      (playlistStore.songs || []).map((song: any) => `${song.source || 'netease'}:${song.id}`)
+    )
+
+    const candidates = data.map((item: any) => {
+      const id = String(item.id ?? item.url_id ?? Math.random())
+      const key = `${item.source || source}:${id}`
+      return {
+        key,
+        song: {
+          id,
+          name: item.name ?? item.title ?? '未知歌曲',
+          artist: normalizeArtistField(item.artist),
+          album: item.album ?? '未知专辑',
+          cover: typeof item.pic === 'string' ? item.pic : '',
+          picId: item.pic_id || item.picId || item.pic_str || undefined,
+          url: typeof item.url === 'string' ? item.url : '',
+          urlId: item.url_id || item.urlId || undefined,
+          lrc: typeof item.lrc === 'string' ? item.lrc : '',
+          lyricId: item.lyric_id || item.lyricId || item.id || undefined,
+          duration: Number(item.time ?? item.duration ?? 0) || 0,
+          source: item.source || source
+        }
+      }
+    })
+
+    let appended = 0
+    for (const { key, song } of candidates) {
+      if (existingKeys.has(key)) continue
+      existingKeys.add(key)
+      playlistStore.addSong(song as any)
+      appended++
+    }
+
+    if (appended === 0) {
+      showNotification('探索雷达：本次未找到新的歌曲，当前列表已包含这些曲目', 'info')
+    } else {
+      showNotification(`探索雷达：新增${appended}首 ${randomGenre} 歌曲`, 'success')
+    }
+
+    const firstCandidate = candidates[0]
+    if (firstCandidate && appended > 0) {
+      const targetIndex = (playlistStore.songs || []).findIndex(
+        (s: any) => s.id === firstCandidate.song.id && (s.source || 'netease') === (firstCandidate.song.source || 'netease')
+      )
+
+      if (targetIndex >= 0) {
+        await playAtIndex(targetIndex)
+      }
+    }
+  } catch (error) {
+    console.error('探索雷达错误:', error)
+    showNotification('探索雷达获取失败，请稍后重试', 'error')
+  } finally {
+    isExploring.value = false
+  }
+}
+
+const isExploring = ref(false)
 
 const audioRef = ref<HTMLAudioElement | null>(null)
 // 标记是否正在切换音质，用于阻止进度更新导致的闪烁
@@ -450,7 +681,6 @@ onBeforeUnmount(() => {
   cancelAllDownloads()
 })
 </script>
-
 <style>
 @media (min-width: 900px) {
   #mainContainer {
@@ -496,4 +726,5 @@ onBeforeUnmount(() => {
   background: #1abc9c;
 }
 </style>
+
 

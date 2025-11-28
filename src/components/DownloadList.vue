@@ -1,8 +1,11 @@
 <template>
-  <div class="flex flex-col h-full min-w-[400px]">
+  <div class="flex flex-col h-full" :class="mobile && mobile.isMobileView.value ? 'min-w-0' : 'min-w-[400px]'">
     <!-- 标题栏 -->
-    <div class="flex items-center justify-between px-4 py-3 border-b"
-      :class="themeStore.isDark ? 'border-white/15 bg-[#1e1e1e]' : 'border-black/10 bg-white/90'">
+    <div 
+      v-if="!mobile || !mobile.isMobileView.value"
+      class="flex items-center justify-between px-4 py-3 border-b"
+      :class="themeStore.isDark ? 'border-white/15 bg-[#1e1e1e]' : 'border-black/10 bg-white/90'"
+    >
       <div class="flex items-center gap-2">
         <i class="fas fa-download text-[#1abc9c]"></i>
         <div class="font-semibold text-sm"
@@ -52,35 +55,58 @@
     </div>
 
     <!-- 下载列表内容 -->
-    <div class="flex-1 overflow-y-auto overflow-x-hidden p-3"
-      :class="themeStore.isDark ? 'bg-[#1a1a1a]' : 'bg-[#f8f9fa]'"
-      style="max-height: calc(500px - 60px);">
+    <div 
+      class="flex-1 overflow-y-auto overflow-x-hidden"
+      :class="[
+        mobile && mobile.isMobileView.value ? 'p-0' : 'p-3 max-h-[calc(500px-60px)]',
+        mobile && mobile.isMobileView.value 
+          ? 'bg-transparent'
+          : (themeStore.isDark ? 'bg-[#1a1a1a]' : 'bg-[#f8f9fa]')
+      ]"
+    >
       <div v-if="downloadStore.tasks.length === 0" 
-        class="text-center py-12">
-        <i class="fas fa-inbox text-4xl mb-3"
-          :class="themeStore.isDark ? 'text-[#95a5a6]/30' : 'text-[#7f8c8d]/30'"></i>
-        <div class="text-sm"
-          :class="themeStore.isDark ? 'text-[#95a5a6]' : 'text-[#7f8c8d]'">
+        class="text-center"
+        :class="mobile && mobile.isMobileView.value ? 'py-16' : 'py-12'"
+      >
+        <i 
+          class="fas fa-inbox mb-3"
+          :class="[
+            themeStore.isDark ? 'text-[#95a5a6]/30' : 'text-[#7f8c8d]/30',
+            mobile && mobile.isMobileView.value ? 'text-5xl' : 'text-4xl'
+          ]"
+        ></i>
+        <div 
+          :class="[
+            themeStore.isDark ? 'text-[#95a5a6]' : 'text-[#7f8c8d]',
+            mobile && mobile.isMobileView.value ? 'text-base' : 'text-sm'
+          ]"
+        >
           暂无下载任务
         </div>
       </div>
 
-      <div v-else class="space-y-2.5">
+      <div 
+        v-else 
+        :class="mobile && mobile.isMobileView.value ? 'space-y-3 px-4' : 'space-y-2.5'"
+      >
         <div
           v-for="task in sortedTasks"
           :key="task.id"
-          class="rounded-lg p-3.5 border transition-all hover:shadow-md"
+          class="rounded-lg transition-all cursor-pointer group"
           :class="[
+            mobile && mobile.isMobileView.value ? 'p-4' : 'p-3.5 hover:shadow-md',
             themeStore.isDark 
-              ? 'bg-[#252525] border-white/10 hover:border-white/20' 
-              : 'bg-white border-black/10 hover:border-black/20',
+              ? 'bg-white/5 border-white/10 hover:bg-white/10'
+              : 'bg-white/70 border-black/10 hover:bg-white/90',
             task.status === 'completed' 
               ? (themeStore.isDark ? 'border-[#1abc9c]/40 bg-[#1abc9c]/5' : 'border-[#1abc9c]/30 bg-[#1abc9c]/5')
               : task.status === 'failed'
               ? (themeStore.isDark ? 'border-[#e74c3c]/40 bg-[#e74c3c]/5' : 'border-[#e74c3c]/30 bg-[#e74c3c]/5')
               : task.status === 'downloading'
-              ? (themeStore.isDark ? 'border-[#1abc9c]/30' : 'border-[#1abc9c]/20')
-              : ''
+              ? (themeStore.isDark ? 'border-[#1abc9c]/30 bg-[#1abc9c]/5' : 'border-[#1abc9c]/20 bg-[#1abc9c]/5')
+              : (themeStore.isDark ? 'border-white/10' : 'border-black/10')
+            ,
+            mobile && mobile.isMobileView.value ? 'border border-solid' : ''
           ]"
         >
           <!-- 歌曲信息 -->
@@ -88,41 +114,59 @@
             <!-- 封面占位 -->
             <div class="flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden bg-gradient-to-br from-[#1abc9c] to-[#16a085] flex items-center justify-center"
               :class="task.status === 'failed' ? 'from-[#e74c3c] to-[#c0392b]' : ''">
-              <i :class="getStatusIcon(task.status)" 
-                class="text-white text-lg"
-                :style="task.status === 'downloading' ? '' : ''"></i>
+              <i :class="getStatusIcon(task.status)" class="text-white text-lg"></i>
             </div>
             
             <div class="flex-1 min-w-0">
-              <div class="font-medium text-sm truncate mb-0.5"
-                :class="themeStore.isDark ? 'text-white' : 'text-[#2c3e50]'">
+              <div 
+                class="truncate mb-0.5 font-medium"
+                :class="[
+                  mobile && mobile.isMobileView.value ? 'text-base' : 'text-sm',
+                  themeStore.isDark ? 'text-white' : 'text-[#2c3e50]'
+                ]"
+              >
                 {{ task.displayName || task.song.name }}
               </div>
-              <div class="text-xs truncate mb-1"
-                :class="themeStore.isDark ? 'text-[#95a5a6]' : 'text-[#7f8c8d]'">
+              <div 
+                class="truncate mb-1"
+                :class="[
+                  mobile && mobile.isMobileView.value ? 'text-sm' : 'text-xs',
+                  themeStore.isDark ? 'text-white/70' : 'text-[#7f8c8d]'
+                ]"
+              >
                 {{ normalizeArtistField(task.song.artist) }}
               </div>
-              <div class="flex items-center gap-2 text-xs"
-                :class="themeStore.isDark ? 'text-[#95a5a6]' : 'text-[#7f8c8d]'">
-                <span class="px-1.5 py-0.5 rounded bg-black/10"
-                  :class="themeStore.isDark ? 'bg-white/10' : 'bg-black/10'">
+              <div 
+                class="flex items-center gap-2"
+                :class="[
+                  mobile && mobile.isMobileView.value ? 'text-sm' : 'text-xs',
+                  themeStore.isDark ? 'text-white/60' : 'text-[#7f8c8d]'
+                ]"
+              >
+                <span 
+                  class="px-1.5 py-0.5 rounded"
+                  :class="themeStore.isDark ? 'bg-white/10' : 'bg-black/10'"
+                >
                   {{ task.quality.toUpperCase() }}
                 </span>
-                <span v-if="task.total" class="text-[#95a5a6]">
+                <span v-if="task.total">
                   {{ formatFileSize(task.total) }}
                 </span>
               </div>
             </div>
             
             <button
-              @click="downloadStore.removeTask(task.id)"
-              class="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full transition-colors"
-              :class="themeStore.isDark 
-                ? 'text-[#95a5a6] hover:text-white hover:bg-white/10' 
-                : 'text-[#7f8c8d] hover:text-[#2c3e50] hover:bg-black/5'"
+              @click.stop="downloadStore.removeTask(task.id)"
+              class="flex-shrink-0 flex items-center justify-center rounded-full transition-colors opacity-0 group-hover:opacity-100"
+              :class="[
+                mobile && mobile.isMobileView.value ? 'w-8 h-8 opacity-100' : 'w-7 h-7',
+                themeStore.isDark 
+                  ? 'text-white/60 hover:text-white hover:bg-white/10' 
+                  : 'text-[#7f8c8d] hover:text-[#2c3e50] hover:bg-black/5'
+              ]"
               title="移除"
             >
-              <i class="fas fa-times text-xs"></i>
+              <i :class="mobile && mobile.isMobileView.value ? 'fas fa-times text-sm' : 'fas fa-times text-xs'"></i>
             </button>
           </div>
 
@@ -139,25 +183,59 @@
             <!-- 下载中：显示进度条和速度 -->
             <div v-else-if="task.status === 'downloading'" 
               class="space-y-1.5">
-              <div class="flex items-center justify-between text-xs">
-                <div class="flex items-center gap-2"
-                  :class="themeStore.isDark ? 'text-[#95a5a6]' : 'text-[#7f8c8d]'">
-                  <i class="fas fa-spinner fa-spin text-[#1abc9c]"></i>
-                  <span>下载中</span>
-                  <span v-if="task.speed" class="text-[#1abc9c] font-medium">
-                    {{ formatSpeed(task.speed) }}
-                  </span>
-                </div>
-                <div class="flex items-center gap-2"
-                  :class="themeStore.isDark ? 'text-[#95a5a6]' : 'text-[#7f8c8d]'">
-                  <span v-if="task.downloaded && task.total">
-                    {{ formatFileSize(task.downloaded) }} / {{ formatFileSize(task.total) }}
-                  </span>
+              <div 
+                :class="[
+                  mobile && mobile.isMobileView.value ? 'flex flex-col gap-1.5' : 'flex items-center justify-between',
+                  mobile && mobile.isMobileView.value ? 'text-sm' : 'text-xs'
+                ]"
+              >
+                <div 
+                  :class="[
+                    mobile && mobile.isMobileView.value ? 'flex items-center justify-between w-full' : 'flex items-center gap-2',
+                    themeStore.isDark ? 'text-[#95a5a6]' : 'text-[#7f8c8d]'
+                  ]"
+                >
+                  <div class="flex items-center gap-2">
+                    <i class="fas fa-spinner fa-spin text-[#1abc9c]"></i>
+                    <span>下载中</span>
+                    <span v-if="task.speed" class="text-[#1abc9c] font-medium">
+                      {{ formatSpeed(task.speed) }}
+                    </span>
+                  </div>
                   <span class="font-medium text-[#1abc9c]">
                     {{ Math.round(task.progress) }}%
                   </span>
+                </div>
+                <div 
+                  v-if="mobile && mobile.isMobileView.value"
+                  class="flex items-center justify-between w-full text-xs"
+                  :class="themeStore.isDark ? 'text-[#95a5a6]' : 'text-[#7f8c8d]'"
+                >
+                  <span v-if="task.downloaded && task.total">
+                    {{ formatFileSize(task.downloaded) }} / {{ formatFileSize(task.total) }}
+                  </span>
                   <button
-                    @click="cancelDownload(task.id)"
+                    @click.stop="cancelDownload(task.id)"
+                    class="flex items-center gap-1 px-2 py-1 rounded transition-colors"
+                    :class="themeStore.isDark 
+                      ? 'text-[#e74c3c] hover:bg-[#e74c3c]/10' 
+                      : 'text-[#e74c3c] hover:bg-[#e74c3c]/5'"
+                    title="取消下载"
+                  >
+                    <i class="fas fa-times"></i>
+                    <span>取消</span>
+                  </button>
+                </div>
+                <div 
+                  v-else
+                  class="flex items-center gap-2"
+                  :class="themeStore.isDark ? 'text-[#95a5a6]' : 'text-[#7f8c8d]'"
+                >
+                  <span v-if="task.downloaded && task.total">
+                    {{ formatFileSize(task.downloaded) }} / {{ formatFileSize(task.total) }}
+                  </span>
+                  <button
+                    @click.stop="cancelDownload(task.id)"
                     class="ml-2 text-xs px-2 py-1 rounded transition-colors"
                     :class="themeStore.isDark 
                       ? 'text-[#e74c3c] hover:bg-[#e74c3c]/10' 
@@ -177,9 +255,13 @@
                   <div class="absolute inset-0 bg-white/20 animate-pulse"></div>
                 </div>
               </div>
-              <div v-if="task.speed && task.total && task.downloaded" 
-                class="text-xs"
-                :class="themeStore.isDark ? 'text-[#95a5a6]' : 'text-[#7f8c8d]'">
+              <div 
+                v-if="task.speed && task.total && task.downloaded" 
+                :class="[
+                  mobile && mobile.isMobileView.value ? 'text-sm' : 'text-xs',
+                  themeStore.isDark ? 'text-[#95a5a6]' : 'text-[#7f8c8d]'
+                ]"
+              >
                 预计剩余时间: {{ formatRemainingTime(task.total - task.downloaded, task.speed) }}
               </div>
             </div>
@@ -293,7 +375,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, inject } from 'vue'
 import { useDownloadStore } from '../stores/download'
 import { useThemeStore } from '../stores/theme'
 import { useDownload } from '../composables/useDownload'
@@ -303,6 +385,7 @@ import type { DownloadTask } from '../stores/download'
 const downloadStore = useDownloadStore()
 const themeStore = useThemeStore()
 const { retryDownload, cancelDownload, cancelAllDownloads } = useDownload()
+const mobile = inject<any>('mobile', null)
 
 // 排序任务：正在下载的排在前面，等待中的在后面，其他状态按原顺序
 const sortedTasks = computed(() => {

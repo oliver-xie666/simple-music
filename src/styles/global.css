@@ -13,6 +13,11 @@ body {
   overflow: hidden;
 }
 
+body.mobile-view {
+  overflow-y: auto;
+  background-attachment: fixed;
+}
+
 body.dark-mode {
   color-scheme: dark;
 }

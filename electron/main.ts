@@ -1,4 +1,4 @@
-import { app, BrowserWindow, globalShortcut } from 'electron'
+import { app, BrowserWindow, globalShortcut, Menu, screen } from 'electron'
 import { join } from 'path'
 import { setupIpcHandlers, cancelAllActiveDownloads } from './services/ipc'
 
@@ -11,13 +11,19 @@ let win: BrowserWindow | null = null
 const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL']
 
 function createWindow() {
+  const primaryDisplay = screen.getPrimaryDisplay()
+  const { height: workAreaHeight } = primaryDisplay.workAreaSize
+  const defaultHeight = Math.min(900, workAreaHeight)
+
   win = new BrowserWindow({
-    width: 1400,
-    height: 900,
-    minWidth: 900,
-    minHeight: 600,
-    maxWidth: 1600,
-    maxHeight: 1000,
+    width: 1300,
+    height: defaultHeight,
+    minWidth: 1100,
+    minHeight: 960,
+    maxWidth: 1576,
+    resizable: true,
+    maximizable: true,
+    minimizable: true,
     title: 'Simple Music',
     frame: true,
     backgroundColor: '#1a1a1a',
@@ -26,6 +32,22 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       webSecurity: true
+    }
+  })
+
+  Menu.setApplicationMenu(null)
+  win.setMenuBarVisibility(false)
+
+  win.on('will-resize', (event, newBounds) => {
+    if (!win) return
+    if (newBounds.height > workAreaHeight) {
+      event.preventDefault()
+      win.setBounds({
+        x: newBounds.x,
+        y: newBounds.y,
+        width: newBounds.width,
+        height: workAreaHeight
+      })
     }
   })
 

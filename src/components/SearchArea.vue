@@ -2,34 +2,66 @@
   <div 
     ref="searchAreaRef"
     id="searchArea"
-    class="rounded-4 p-5 border relative z-20 overflow-visible flex flex-col transition-all duration-500 isolate"
+    data-area="search"
+    class="relative z-20 overflow-visible flex flex-col transition-all duration-500 isolate"
     :class="[
-      themeStore.isDark ? 'bg-[#1e1e1e]/60 border-white/15' : 'bg-white/50 border-black/10',
-      searchStore.results.length > 0 ? 'border-[#1abc9c] shadow-[0_15px_45px_rgba(26,188,156,0.2)]' : ''
+      !mobile.isMobileView.value ? 'rounded-4 p-5 border [grid-area:search] w-full' : '',
+      !mobile.isMobileView.value ? (themeStore.isDark ? 'bg-[#1e1e1e]/60 border-white/15' : 'bg-white/50 border-black/10') : '',
+      searchStore.results.length > 0 && !mobile.isMobileView.value ? 'border-[#1abc9c] shadow-[0_15px_45px_rgba(26,188,156,0.2)]' : '',
+      mobile.isMobileView.value 
+        ? [
+            'fixed inset-0 w-full h-full bg-[rgba(6,9,14,0.95)] backdrop-blur-[26px] border-none rounded-none box-border px-[clamp(18px,6vw,28px)] pt-[calc(env(safe-area-inset-top,0px)+28px)] pb-[calc(env(safe-area-inset-bottom,0px)+clamp(24px,8vw,36px))] gap-4 items-stretch justify-start z-[160] transition-[transform,opacity] duration-[450ms]',
+            mobile.isSearchOpen.value ? 'translate-y-0 opacity-100 pointer-events-auto' : '-translate-y-full opacity-0 pointer-events-none'
+          ]
+        : ''
     ]"
-    style="grid-area: search; width: 100%;"
   >
-    <div class="flex gap-2.5 items-center mb-3.75 flex-shrink-0">
+    <!-- 移动端关闭按钮 -->
+    <button
+      v-if="mobile.isMobileView.value"
+      @click="mobile.closeSearch()"
+      class="mobile-close-btn self-end w-[38px] h-[38px] rounded-full border flex items-center justify-center cursor-pointer transition-all duration-250"
+      :class="themeStore.isDark ? 'bg-white/8 border-white/18 text-white hover:bg-white/14' : 'bg-white/8 border-white/18 text-white hover:bg-white/14'"
+    >
+      <i class="fas fa-times text-sm"></i>
+    </button>
+
+    <!-- 搜索容器 -->
+    <div 
+      class="flex gap-2.5 items-center mb-3.75 flex-shrink-0"
+      :class="mobile.isMobileView.value ? 'flex-col gap-3 w-full max-w-[340px] mx-auto' : ''"
+    >
       <input 
         type="text" 
         v-model="searchQuery" 
         @keyup.enter="handleSearch"
+        ref="searchInputRef"
         class="flex-1 px-4 py-3 border-2 rounded-3 text-base outline-none transition-all duration-300 hover:border-primary focus:border-primary focus:shadow-[0_0_0_3px_rgba(26,188,156,0.25)] bg-white/50 text-[#2c3e50] border-black/10"
-        :class="themeStore.isDark ? 'bg-[#2a2a2a]/80 text-white border-white/20' : ''"
+        :class="[
+          themeStore.isDark ? 'bg-[#2a2a2a]/80 text-white border-white/20' : '',
+          mobile.isMobileView.value ? 'w-full bg-white/8 border-white/18 text-white placeholder:text-white/50 rounded-[14px]' : ''
+        ]"
         placeholder="搜索歌曲、歌手或专辑..."
       >
       
       <!-- 音乐源选择 -->
-      <div class="relative flex-shrink-0" data-source-selector>
+      <div 
+        class="relative flex-shrink-0" 
+        data-source-selector
+        :class="mobile.isMobileView.value ? 'w-full' : ''"
+      >
         <button 
           @click="showMenu = !showMenu"
           class="flex items-center justify-between gap-2 px-4.5 py-3 border rounded-3 font-medium cursor-pointer transition-all duration-250 min-w-[150px] bg-white/50 text-[#2c3e50] border-black/10 hover:border-[#1abc9c] hover:text-[#1abc9c]"
-          :class="themeStore.isDark ? 'bg-[#2a2a2a]/80 text-white border-white/20 hover:border-[#1abc9c]' : ''"
+          :class="[
+            themeStore.isDark ? 'bg-[#2a2a2a]/80 text-white border-white/20 hover:border-[#1abc9c]' : '',
+            mobile.isMobileView.value ? 'w-full rounded-[14px] bg-white/12 border-none text-white' : ''
+          ]"
         >
           <span>{{ sourceName }}</span>
           <i 
             class="fas fa-chevron-down text-0.8em transition-transform duration-250"
-            :style="{ transform: showMenu ? 'rotate(-180deg)' : '' }"
+            :class="showMenu ? '-rotate-180' : 'rotate-0'"
           ></i>
         </button>
         
@@ -56,7 +88,10 @@
         @click="handleSearch" 
         class="text-white border-none rounded-3 px-5 py-3 cursor-pointer text-base transition-all duration-200 flex items-center gap-2"
         :disabled="searchStore.isLoading || !searchQuery.trim()"
-        :class="searchStore.isLoading ? 'bg-[#7f8c8d] cursor-not-allowed' : 'bg-[#1abc9c] hover:bg-[#12836d]'"
+        :class="[
+          searchStore.isLoading ? 'bg-[#7f8c8d] cursor-not-allowed' : 'bg-[#1abc9c] hover:bg-[#12836d]',
+          mobile.isMobileView.value ? 'w-full rounded-[14px] bg-white/12 border-none justify-center' : ''
+        ]"
       >
         <i :class="searchStore.isLoading ? 'fas fa-spinner fa-spin' : 'fas fa-search'"></i>
         <span>搜索</span>
@@ -67,11 +102,11 @@
     <div 
       v-if="showResultsDropdown" 
       class="absolute left-0 right-0 top-[calc(100%+12px)] z-[80]"
+      :class="mobile.isMobileView.value ? 'relative top-0 left-0 right-0 flex-1 min-h-0 overflow-y-auto w-full max-w-[340px] mx-auto pr-[6px] mr-[-6px] overscroll-contain touch-pan-y' : ''"
     >
       <div 
-        class="px-5 pt-4 pb-5 rounded-4 border flex flex-col gap-4 transition-all duration-300 shadow-[0_20px_45px_rgba(0,0,0,0.25)]"
+        class="px-5 pt-4 pb-5 rounded-4 border flex flex-col gap-4 transition-all duration-300 shadow-[0_20px_45px_rgba(0,0,0,0.25)] backdrop-blur-[18px]"
         :class="themeStore.isDark ? 'bg-[#1e1e1e]/85 border-white/15' : 'bg-white/80 border-black/10'"
-        style="backdrop-filter: blur(18px);"
       >
         <div class="flex flex-col gap-4">
       <!-- 工具栏：播放全部、全选/全不选、下载已选、导入已选 -->
@@ -83,18 +118,22 @@
         <button
           @click="handlePlayAll"
           :disabled="playAllLoading"
-          class="flex items-center gap-2 px-4 py-2 rounded-full border-none transition-all duration-200 text-white bg-[#1abc9c] shadow-[0_6px_16px_rgba(26,188,156,0.3)]"
-          :class="playAllLoading ? 'opacity-60 cursor-wait' : 'cursor-pointer hover:bg-[#12836d]'"
+          class="flex items-center rounded-full border-none transition-all duration-200 text-white bg-[#1abc9c] shadow-[0_6px_16px_rgba(26,188,156,0.3)]"
+          :class="[
+            playAllLoading ? 'opacity-60 cursor-wait' : 'cursor-pointer hover:bg-[#12836d]',
+            mobile.isMobileView.value ? 'w-9 h-9 p-0 justify-center' : 'gap-2 px-4 py-2'
+          ]"
+          :title="mobile.isMobileView.value ? (playAllLoading ? '正在播放...' : '播放全部') : ''"
         >
           <i 
             v-if="playAllLoading" 
-            class="fas fa-spinner fa-spin text-0.9em"
+            :class="mobile.isMobileView.value ? 'fas fa-spinner fa-spin' : 'fas fa-spinner fa-spin text-0.9em'"
           ></i>
           <i 
             v-else 
-            class="fas fa-play text-0.9em"
+            :class="mobile.isMobileView.value ? 'fas fa-play' : 'fas fa-play text-0.9em'"
           ></i>
-          <span class="text-0.9em font-semibold">
+          <span v-if="!mobile.isMobileView.value" class="text-0.9em font-semibold">
             {{ playAllLoading ? '正在播放...' : '播放全部' }}
           </span>
         </button>
@@ -104,14 +143,17 @@
           <!-- 全选/全不选 -->
           <button
             @click="handleToggleSelectAll"
-            class="flex items-center gap-2 px-4 py-2 rounded-full border-none cursor-pointer transition-all duration-200 text-white shadow-[0_6px_16px_rgba(46,204,113,0.3)] bg-[#2ecc71] hover:bg-[#27ae60]"
-            title="全选/全不选"
+            class="flex items-center rounded-full border-none cursor-pointer transition-all duration-200 text-white shadow-[0_6px_16px_rgba(46,204,113,0.3)] bg-[#2ecc71] hover:bg-[#27ae60]"
+            :class="mobile.isMobileView.value ? 'w-9 h-9 p-0 justify-center' : 'gap-2 px-4 py-2'"
+            :title="mobile.isMobileView.value ? (isAllSelected ? '全不选' : '全选') : '全选/全不选'"
           >
             <i 
-              :class="isAllSelected ? 'fas fa-check-square' : 'fas fa-square'"
-              class="text-0.9em"
+              :class="[
+                isAllSelected ? 'fas fa-check-square' : 'fas fa-square',
+                mobile.isMobileView.value ? '' : 'text-0.9em'
+              ]"
             ></i>
-            <span class="text-0.9em font-semibold">
+            <span v-if="!mobile.isMobileView.value" class="text-0.9em font-semibold">
               {{ isAllSelected ? '全不选' : '全选' }}
             </span>
           </button>
@@ -121,36 +163,47 @@
             ref="downloadSelectedButtonRef"
             @click="handleDownloadSelected"
             :disabled="searchStore.selectedIndices.size === 0 || isDownloadingSelected"
-            class="flex items-center gap-2 px-4 py-2 rounded-full border-none cursor-pointer transition-all duration-200 text-white shadow-[0_6px_16px_rgba(46,204,113,0.3)]"
-            :class="searchStore.selectedIndices.size === 0 || isDownloadingSelected ? 'bg-[#7f8c8d]/50 cursor-not-allowed' : 'bg-[#2ecc71] hover:bg-[#27ae60]'"
-            title="下载已选歌曲"
+            class="flex items-center rounded-full border-none cursor-pointer transition-all duration-200 text-white shadow-[0_6px_16px_rgba(46,204,113,0.3)]"
+            :class="[
+              searchStore.selectedIndices.size === 0 || isDownloadingSelected ? 'bg-[#7f8c8d]/50 cursor-not-allowed' : 'bg-[#2ecc71] hover:bg-[#27ae60]',
+              mobile.isMobileView.value ? 'w-9 h-9 p-0 justify-center' : 'gap-2 px-4 py-2'
+            ]"
+            :title="mobile.isMobileView.value ? '下载已选歌曲' : ''"
           >
             <i 
               v-if="isDownloadingSelected"
-              class="fas fa-spinner fa-spin text-0.9em"
+              :class="mobile.isMobileView.value ? 'fas fa-spinner fa-spin' : 'fas fa-spinner fa-spin text-0.9em'"
             ></i>
             <i 
               v-else
-              class="fas fa-download text-0.9em"
+              :class="mobile.isMobileView.value ? 'fas fa-download' : 'fas fa-download text-0.9em'"
             ></i>
-            <span class="text-0.9em font-semibold">下载已选</span>
-            <span v-if="searchStore.selectedIndices.size > 0" class="text-0.85em font-medium ml-1">
-              ({{ searchStore.selectedIndices.size }})
-            </span>
+            <template v-if="!mobile.isMobileView.value">
+              <span class="text-0.9em font-semibold">下载已选</span>
+              <span v-if="searchStore.selectedIndices.size > 0" class="text-0.85em font-medium ml-1">
+                ({{ searchStore.selectedIndices.size }})
+              </span>
+            </template>
           </button>
 
           <!-- 导入已选 -->
           <button
             @click="handleImportToPlaylist"
             :disabled="searchStore.selectedIndices.size === 0"
-            class="flex items-center gap-2 px-4 py-2 rounded-full border-none cursor-pointer transition-all duration-200 text-white shadow-[0_6px_16px_rgba(26,188,156,0.3)]"
-            :class="searchStore.selectedIndices.size === 0 ? 'bg-[#7f8c8d]/50 cursor-not-allowed' : 'bg-[#1abc9c] hover:bg-[#12836d]'"
+            class="flex items-center rounded-full border-none cursor-pointer transition-all duration-200 text-white shadow-[0_6px_16px_rgba(26,188,156,0.3)]"
+            :class="[
+              searchStore.selectedIndices.size === 0 ? 'bg-[#7f8c8d]/50 cursor-not-allowed' : 'bg-[#1abc9c] hover:bg-[#12836d]',
+              mobile.isMobileView.value ? 'w-9 h-9 p-0 justify-center' : 'gap-2 px-4 py-2'
+            ]"
+            :title="mobile.isMobileView.value ? '导入已选' : ''"
           >
-            <i class="fas fa-file-import text-0.9em"></i>
-            <span class="text-0.9em font-semibold">导入已选</span>
-            <span v-if="searchStore.selectedIndices.size > 0" class="text-0.85em font-medium ml-1">
-              ({{ searchStore.selectedIndices.size }})
-            </span>
+            <i :class="mobile.isMobileView.value ? 'fas fa-file-import' : 'fas fa-file-import text-0.9em'"></i>
+            <template v-if="!mobile.isMobileView.value">
+              <span class="text-0.9em font-semibold">导入已选</span>
+              <span v-if="searchStore.selectedIndices.size > 0" class="text-0.85em font-medium ml-1">
+                ({{ searchStore.selectedIndices.size }})
+              </span>
+            </template>
           </button>
         </div>
 
@@ -197,8 +250,7 @@
       <div>
         <div 
           v-if="searchStore.isLoading && searchStore.results.length === 0"
-          class="flex flex-col gap-2 py-3 pr-2 -mr-2 flex-1 min-h-0 max-h-[35vh] overflow-hidden"
-          style="overscroll-behavior: contain;"
+          class="flex flex-col gap-2 py-3 pr-2 -mr-2 flex-1 min-h-0 max-h-[35vh] overflow-hidden overscroll-contain"
         >
           <div
             v-for="i in skeletonItemCount"
@@ -220,8 +272,7 @@
 
         <div 
           v-else
-          class="flex flex-col gap-2 py-3 pr-2 -mr-2 flex-1 min-h-0 overflow-y-auto max-h-[35vh]" 
-          style="overscroll-behavior: contain;"
+          class="flex flex-col gap-2 py-3 pr-2 -mr-2 flex-1 min-h-0 overflow-y-auto max-h-[35vh] overscroll-contain" 
           @scroll.passive="handleResultsScroll"
         >
             <div 
@@ -229,18 +280,17 @@
               :key="index"
               :ref="el => { if (el) songRefs[index] = el as HTMLElement }"
               @click="toggleSelection(index, $event)"
-              class="flex items-center gap-3 px-4 py-3 rounded-3 cursor-pointer transition-all duration-300 border relative"
+              class="flex items-center gap-3 px-4 py-3 rounded-3 cursor-pointer transition-all duration-300 border relative backdrop-blur-[12px] shadow-[0_6px_18px_rgba(0,0,0,0.12)]"
               :class="[
                 themeStore.isDark 
                   ? 'bg-white/10 border-white/20 hover:bg-white/15' 
                   : 'bg-white/70 border-white/60 hover:bg-[#1abc9c]/10',
                 searchStore.selectedIndices.has(index) 
                   ? themeStore.isDark
-                    ? 'border-[#34d1b6] bg-[#1abc9c]/15'
-                    : 'border-[#1abc9c] bg-[#1abc9c]/12'
+                    ? 'border-2 border-[#34d1b6] bg-[#1abc9c]/15 shadow-[0_12px_32px_rgba(26,188,156,0.35)]'
+                    : 'border-2 border-[#1abc9c] bg-[#1abc9c]/12 shadow-[0_12px_30px_rgba(26,188,156,0.25)]'
                   : ''
               ]"
-              :style="getSearchResultStyle(index)"
             >
               <!-- 左侧：圆形复选框 -->
               <button
@@ -286,24 +336,27 @@
               </div>
 
               <!-- 右侧：操作按钮 -->
-              <div class="flex gap-2 ml-3.75 flex-shrink-0">
+              <div class="flex gap-2 ml-3.75 flex-shrink-0 items-center">
                 <!-- 播放按钮 -->
                 <button 
                   @click.stop="playSong(song)"
                   :disabled="isSongPlaying(song)"
-                  class="px-3 py-1.5 rounded-2 border flex justify-center items-center gap-1.5 text-[13px] transition-all duration-200 text-white bg-[#1abc9c] border-[#1abc9c]/45 shadow-[0_6px_16px_rgba(26,188,156,0.3)]"
-                  :class="isSongPlaying(song) ? 'opacity-60 cursor-wait' : 'hover:bg-[#12836d]'"
+                  class="rounded-full border flex justify-center items-center transition-all duration-200 text-white bg-[#1abc9c] border-[#1abc9c]/45 shadow-[0_6px_16px_rgba(26,188,156,0.3)]"
+                  :class="[
+                    isSongPlaying(song) ? 'opacity-60 cursor-wait' : 'hover:bg-[#12836d]',
+                    mobile.isMobileView.value ? 'w-8 h-8 p-0' : 'px-3 py-1.5 rounded-2 gap-1.5 text-[13px]'
+                  ]"
                   title="播放"
                 >
                   <i 
                     v-if="isSongPlaying(song)" 
-                    class="fas fa-spinner fa-spin text-0.85em"
+                    :class="mobile.isMobileView.value ? 'fas fa-spinner fa-spin' : 'fas fa-spinner fa-spin text-0.85em'"
                   ></i>
                   <i 
                     v-else 
-                    class="fas fa-play text-0.85em"
+                    :class="mobile.isMobileView.value ? 'fas fa-play' : 'fas fa-play text-0.85em'"
                   ></i>
-                  <span>{{ isSongPlaying(song) ? '播放中...' : '播放' }}</span>
+                  <span v-if="!mobile.isMobileView.value">{{ isSongPlaying(song) ? '播放中...' : '播放' }}</span>
                 </button>
 
                 <!-- 下载按钮 -->
@@ -311,7 +364,7 @@
                   <button 
                     data-download-trigger
                     @click.stop="toggleDownloadMenu(index, $event)"
-                    class="w-8 h-8 p-0 rounded-2 border flex justify-center items-center text-[14px] transition-all duration-200 text-white bg-[#2ecc71] border-[#2ecc71]/55 hover:bg-[#27ae60] shadow-[0_6px_16px_rgba(46,204,113,0.28)]"
+                    class="w-8 h-8 p-0 rounded-full border flex justify-center items-center text-[14px] transition-all duration-200 text-white bg-[#2ecc71] border-[#2ecc71]/55 hover:bg-[#27ae60] shadow-[0_6px_16px_rgba(46,204,113,0.28)]"
                     title="下载"
                   >
                     <i class="fas fa-download"></i>
@@ -427,7 +480,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount, inject } from 'vue'
 import { useSearchStore } from '../stores/search'
 import { useThemeStore } from '../stores/theme'
 import { usePlayerStore } from '../stores/player'
@@ -447,6 +500,7 @@ const { search: performSearch, playAllSearchResults: playAll, importSelectedSear
 const { playAtIndex } = usePlayer()
 const { show: showNotification } = useNotification()
 const { downloadSong, downloadSongs } = useDownload()
+const mobile = inject<any>('mobile', null)
 const searchQuery = ref('')
 const showMenu = ref(false)
 // const showImportMenu = ref(false)
@@ -457,7 +511,21 @@ const jumpPage = ref(1)
 const searchAreaRef = ref<HTMLElement | null>(null)
 const songRefs = ref<Record<number, HTMLElement>>({})
 const downloadSelectedButtonRef = ref<HTMLElement | null>(null)
+const searchInputRef = ref<HTMLInputElement | null>(null)
 const skeletonItemCount = 6
+
+// 移动端搜索打开时自动聚焦输入框
+watch(() => mobile?.isSearchOpen.value, (isOpen) => {
+  if (isOpen && searchInputRef.value) {
+    setTimeout(() => {
+      try {
+        searchInputRef.value?.focus({ preventScroll: true })
+      } catch (error) {
+        searchInputRef.value?.focus()
+      }
+    }, 100)
+  }
+})
 const playAllLoading = ref(false)
 const playingSongKey = ref<string | null>(null)
 const isDownloadingSelected = ref(false)
@@ -536,6 +604,10 @@ async function playSong(song: any) {
   const idx = playlistStore.songs.findIndex(s => s.id === song.id && s.source === song.source)
   try {
     if (idx !== -1) await playAtIndex(idx)
+    // 移动端操作后关闭搜索区域
+    if (mobile?.isMobileView.value) {
+      mobile.closeSearch()
+    }
   } finally {
     playingSongKey.value = null
   }
@@ -547,6 +619,10 @@ async function handlePlayAll() {
   hideResultsDropdown()
   try {
     await playAll(playAtIndex)
+    // 移动端操作后关闭搜索区域
+    if (mobile?.isMobileView.value) {
+      mobile.closeSearch()
+    }
   } finally {
     playAllLoading.value = false
   }
@@ -560,30 +636,14 @@ function toggleSelection(index: number, e: MouseEvent) {
   toggleSearchResultSelection(index)
 }
 
-function getSearchResultStyle(index: number) {
-  const base: Record<string, string> = {
-    backdropFilter: 'blur(12px)'
-  }
-
-  if (searchStore.selectedIndices.has(index)) {
-    base.borderWidth = '2px'
-    base.borderColor = themeStore.isDark ? '#34d1b6' : '#1abc9c'
-    base.boxShadow = themeStore.isDark
-      ? '0 12px 32px rgba(26,188,156,0.35)'
-      : '0 12px 30px rgba(26,188,156,0.25)'
-  } else {
-    base.boxShadow = themeStore.isDark
-      ? '0 6px 18px rgba(0,0,0,0.35)'
-      : '0 6px 16px rgba(0,0,0,0.08)'
-  }
-
-  return base
-}
-
 function handleImportToPlaylist() {
   importSelectedSearchResults('playlist')
   // showImportMenu.value = false
   hideResultsDropdown()
+  // 移动端操作后关闭搜索区域
+  if (mobile?.isMobileView.value) {
+    mobile.closeSearch()
+  }
 }
 
 // 全选/全不选
@@ -621,6 +681,10 @@ async function handleDownloadSelected() {
     // 批量下载（使用当前选择的音质）
     // 传递批量下载按钮元素，只触发一个动画
     await downloadSongs(selectedSongs, usePlayerStore().quality, undefined, downloadSelectedButtonRef.value || undefined)
+    // 移动端操作后关闭搜索区域
+    if (mobile?.isMobileView.value) {
+      mobile.closeSearch()
+    }
   } catch (error: any) {
     console.error('批量下载失败:', error)
     showNotification(error?.message || '批量下载失败', 'error')
@@ -648,6 +712,10 @@ async function handleDownload(song: any, quality: string) {
 
   // 使用新的下载系统
   await downloadSong(song, quality as any, sourceElement || undefined)
+  // 移动端操作后关闭搜索区域
+  if (mobile?.isMobileView.value) {
+    mobile.closeSearch()
+  }
 }
 
 function handlePreviousPage() {

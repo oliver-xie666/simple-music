@@ -1,14 +1,18 @@
 <template>
   <div 
+    data-area="playlist"
     class="rounded-4 p-5 border flex flex-col relative h-full min-h-[220px] overflow-hidden transition-all duration-500"
-    style="grid-area: playlist; background: rgba(255, 255, 255, 0.5); backdrop-filter: blur(10px); padding-top: 72px;"
     :class="[
-      themeStore.isDark ? 'bg-[#2c2c2c]/50 border-white/15' : 'bg-white/50 border-black/10',
+      mobile && mobile.isMobileView.value
+        ? 'bg-transparent border-none p-0 max-h-none flex-1 min-h-0 [grid-area:unset]'
+        : '[grid-area:playlist] pt-[72px] backdrop-blur-[10px]',
+      !mobile || !mobile.isMobileView.value ? (themeStore.isDark ? 'bg-[#2c2c2c]/50 border-white/15' : 'bg-white/50 border-black/10') : '',
       playlistStore.songs.length === 0 ? 'items-center justify-center' : 'items-stretch justify-start'
     ]"
   >
-    <!-- 播放列表标题 / 操作区 -->
+    <!-- 播放列表标题 / 操作区 (桌面端) -->
     <div
+      v-if="!mobile || !mobile.isMobileView.value"
       class="absolute top-4 left-5 right-3 flex items-center justify-between gap-4 z-5 pointer-events-none"
     >
       <div class="flex items-center gap-2 flex-1 min-w-0 pointer-events-auto">
@@ -97,8 +101,7 @@
     <div
       v-else
       ref="listRef"
-      class="flex-1 w-full overflow-y-auto pr-2 -mr-2"
-      style="overscroll-behavior: contain;"
+      class="flex-1 w-full overflow-y-auto pr-2 -mr-2 overscroll-contain"
       @scroll="handleListScroll"
     >
       <div class="w-full">
@@ -166,7 +169,7 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, onBeforeUpdate, ref, watch, onMounted, onBeforeUnmount } from 'vue'
+import { nextTick, onBeforeUpdate, ref, watch, onMounted, onBeforeUnmount, inject } from 'vue'
 import { usePlaylistStore } from '../stores/playlist'
 import { useThemeStore } from '../stores/theme'
 import { usePlayerStore } from '../stores/player'
@@ -191,6 +194,7 @@ const downloadMenuPosition = ref({ x: 0, y: 0 })
 const qualityOptions = QUALITY_OPTIONS
 const isDownloadingAll = ref(false)
 const downloadAllButtonRef = ref<HTMLElement | null>(null)
+const mobile = inject<any>('mobile', null)
 
 onBeforeUpdate(() => {
   songRefs.value = []

@@ -1,10 +1,13 @@
 <template>
   <div 
+    data-area="lyrics"
     ref="lyricsContainer"
     class="rounded-4 p-5 border flex flex-col h-full min-h-[220px] overflow-hidden transition-all duration-500"
-    style="grid-area: lyrics; background: rgba(255, 255, 255, 0.5); backdrop-filter: blur(10px);"
     :class="[
-      themeStore.isDark ? 'bg-[#2c2c2c]/50 border-white/15' : 'bg-white/50 border-black/10'
+      mobile && mobile.isMobileView.value
+        ? 'bg-transparent border-none p-0 max-h-none flex-1 min-h-0 text-white/80 [grid-area:unset]'
+        : '[grid-area:lyrics] backdrop-blur-[10px]',
+      !mobile || !mobile.isMobileView.value ? (themeStore.isDark ? 'bg-[#2c2c2c]/50 border-white/15' : 'bg-white/50 border-black/10') : ''
     ]"
   >
     <div 
@@ -30,12 +33,11 @@
           @click="handleLyricClick(line, index)"
           :class="[
             index === lyricsStore.currentLine 
-              ? 'text-[#1abc9c] font-medium bg-[#1abc9c]/20'
+              ? 'text-[#1abc9c] font-medium bg-[#1abc9c]/20 leading-[2.2]'
               : themeStore.isDark 
-                ? 'text-[#ecf0f1] hover:bg-[#1abc9c]/10 hover:text-[#1abc9c]' 
-                : 'text-[#2c3e50] hover:bg-[#1abc9c]/10 hover:text-[#1abc9c]'
+                ? 'text-[#ecf0f1] hover:bg-[#1abc9c]/10 hover:text-[#1abc9c] leading-[2]'
+                : 'text-[#2c3e50] hover:bg-[#1abc9c]/10 hover:text-[#1abc9c] leading-[2]'
           ]"
-          :style="index === lyricsStore.currentLine ? 'line-height: 2.2;' : 'line-height: 2;'"
         >
           {{ line.text }}
         </div>
@@ -45,7 +47,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick } from 'vue'
+import { ref, watch, nextTick, inject } from 'vue'
 import type { ComponentPublicInstance } from 'vue'
 import { useLyricsStore } from '../stores/lyrics'
 import { useThemeStore } from '../stores/theme'
@@ -57,6 +59,7 @@ const themeStore = useThemeStore()
 const playerStore = usePlayerStore()
 const lyricsContainer = ref<HTMLElement | null>(null)
 const currentLyricRef = ref<HTMLElement | null>(null)
+const mobile = inject<any>('mobile', null)
 
 function setCurrentLyricRef(
   el: Element | ComponentPublicInstance | null,
