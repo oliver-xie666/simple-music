@@ -1,6 +1,8 @@
 # 更新记录
 
 
+### [0.0.9](https://github.com/oliver-xie666/simple-music/compare/v0.0.8...v0.0.9) (2025-12-01)
+
 ### 0.0.1 (2025-11-28)
 
 

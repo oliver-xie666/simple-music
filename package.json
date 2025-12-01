@@ -1,6 +1,6 @@
 {
   "name": "simple-music",
-  "version": "0.0.7",
+  "version": "0.0.9",
   "description": "基于 Electron + Vue3 + TypeScript 的现代音乐播放器",
   "main": "dist-electron/main.js",
   "author": {
