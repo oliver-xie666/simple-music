@@ -76,9 +76,12 @@ jobs:
       - name: Publish Release
         uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/**/*
+          files: artifacts/**/* 
           tag_name: ${{ github.ref_name }}
           name: Release ${{ github.ref_name }}
           draft: false
           prerelease: false
+          # 使用 Personal Access Token 来创建 Release
+          # 如果 PAT_TOKEN 未设置，请访问仓库 Settings -> Secrets and variables -> Actions 添加
+          token: ${{ secrets.PAT_TOKEN }}
 
