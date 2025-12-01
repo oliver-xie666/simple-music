@@ -32,5 +32,6 @@ const run = (command, args, opts = {}) => {
 
 run('npx', ['vue-tsc', '--noEmit']);
 run('npx', ['vite', 'build'], { env: sharedEnv });
-run('npx', ['electron-builder', ...resolvedTargets], { env: sharedEnv });
+// 添加 --publish never 明确禁用发布，发布由 GitHub Actions 的 publish job 处理
+run('npx', ['electron-builder', '--publish', 'never', ...resolvedTargets], { env: sharedEnv });
 

@@ -9,6 +9,7 @@ jobs:
   build:
     name: Build ${{ matrix.display }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
     strategy:
       matrix:
         include:
@@ -36,6 +37,12 @@ jobs:
         run: npm ci
 
       - name: Build renderer + Electron bundles
+        env:
+          # 禁用 electron-builder 的自动发布功能
+          # 发布由 publish job 中的 action-gh-release 处理
+          GH_TOKEN: ""
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+        timeout-minutes: 30
         run: npm run build:electron:release -- ${{ matrix.build_args }}
 
       - name: Upload artifacts

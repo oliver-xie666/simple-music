@@ -47,6 +47,6 @@
     "allowToChangeInstallationDirectory": true,
     "createDesktopShortcut": true
   },
-  "publish": []
+  "publish": null
 }
 
