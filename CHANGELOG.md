@@ -3,6 +3,19 @@
 
 ### [0.0.9](https://github.com/oliver-xie666/simple-music/compare/v0.0.8...v0.0.9) (2025-12-01)
 
+### ♻️ 重构
+
+* 构建脚本新增 `release/artifacts` 目录，只收集 `.exe/.dmg/.AppImage/.deb/.yml` 等最终安装包，避免把解压后的 `pak/dll` 文件上传到 Release。
+
+### 🐞 修复
+
+* Release workflow 统一依赖 PAT_TOKEN 权限并在发布前做显式校验，修复 403 `Resource not accessible by integration` 问题。
+* 发布阶段仅上传整理后的产物，确保 Release 页面内容与 `lx-music-desktop` 等项目保持一致。
+
+### 🔧 维护
+
+* 使用 `standard-version` 重新生成完整 changelog，并 bump 版本至 `0.0.9`。
+
 ### 0.0.1 (2025-11-28)
 
 

@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process';
 import process from 'node:process';
+import { mkdirSync, rmSync, readdirSync, statSync, copyFileSync, existsSync } from 'node:fs';
+import { join } from 'node:path';
 
 const PLATFORM_TARGETS = {
   win32: ['--win', 'nsis', '--x64', '--arm64'],
@@ -17,6 +19,37 @@ if (!resolvedTargets) {
 }
 
 const sharedEnv = { ...process.env, ELECTRON_MODE: 'true' };
+const releaseDir = join(process.cwd(), 'release');
+const artifactsDir = join(releaseDir, 'artifacts');
+
+const ARTIFACT_PATTERNS = [
+  /\.exe$/i,
+  /\.exe\.blockmap$/i,
+  /\.dmg$/i,
+  /\.dmg\.blockmap$/i,
+  /\.appimage$/i,
+  /\.deb$/i,
+  /\.yml$/i,
+];
+
+const ensureArtifactsDir = () => {
+  rmSync(artifactsDir, { recursive: true, force: true });
+  mkdirSync(artifactsDir, { recursive: true });
+};
+
+const collectArtifacts = () => {
+  if (!existsSync(releaseDir)) return;
+  const entries = readdirSync(releaseDir);
+  for (const entry of entries) {
+    const fullPath = join(releaseDir, entry);
+    const stat = statSync(fullPath);
+    if (!stat.isFile()) continue;
+    const matched = ARTIFACT_PATTERNS.some((regex) => regex.test(entry));
+    if (!matched) continue;
+    copyFileSync(fullPath, join(artifactsDir, entry));
+    console.log(`[release] artifact ready -> ${entry}`);
+  }
+};
 
 const run = (command, args, opts = {}) => {
   console.log(`[release] ${command} ${args.join(' ')}`.trim());
@@ -33,5 +66,7 @@ const run = (command, args, opts = {}) => {
 run('npx', ['vue-tsc', '--noEmit']);
 run('npx', ['vite', 'build'], { env: sharedEnv });
 // 添加 --publish never 明确禁用发布，发布由 GitHub Actions 的 publish job 处理
+ensureArtifactsDir();
 run('npx', ['electron-builder', '--publish', 'never', ...resolvedTargets], { env: sharedEnv });
+collectArtifacts();
 
