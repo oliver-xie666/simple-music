@@ -35,6 +35,8 @@ const ARTIFACT_PATTERNS = [
   /\.dmg\.blockmap$/i,
   /\.appimage$/i,
   /\.deb$/i,
+  /\.zip$/i,
+  /\.tar\.gz$/i,
   /\.yml$/i,
 ];
 

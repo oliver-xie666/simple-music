@@ -6,6 +6,7 @@
 ### ♻️ 重构
 
 * 构建脚本为 `builder-debug.yml / latest*.yml` 自动添加平台前缀，避免发布阶段出现重名文件。
+* 产出清单新增 Windows ZIP、macOS ZIP、Linux TAR.GZ 等可解压版本，对齐 [LX Music 桌面版的发布形式](https://github.com/lyswhut/lx-music-desktop)。
 
 ### 🐞 修复
 
