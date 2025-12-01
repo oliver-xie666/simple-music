@@ -3,6 +3,14 @@
 
 ### [0.0.11](https://github.com/oliver-xie666/simple-music/compare/v0.0.10...v0.0.11) (2025-12-01)
 
+### ♻️ 重构
+
+* 构建脚本为 `builder-debug.yml / latest*.yml` 自动添加平台前缀，避免发布阶段出现重名文件。
+
+### 🐞 修复
+
+* 版本号同步到 `0.0.11`，确保安装包文件名与 Release 标签一致，修复 `update-a-release-asset Not Found`。
+
 ### [0.0.9](https://github.com/oliver-xie666/simple-music/compare/v0.0.8...v0.0.9) (2025-12-01)
 
 ### ♻️ 重构

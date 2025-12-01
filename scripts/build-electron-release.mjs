@@ -21,6 +21,12 @@ if (!resolvedTargets) {
 const sharedEnv = { ...process.env, ELECTRON_MODE: 'true' };
 const releaseDir = join(process.cwd(), 'release');
 const artifactsDir = join(releaseDir, 'artifacts');
+const platformLabelMap = {
+  win32: 'windows',
+  darwin: 'macos',
+  linux: 'linux'
+};
+const platformLabel = platformLabelMap[process.platform] || process.platform;
 
 const ARTIFACT_PATTERNS = [
   /\.exe$/i,
@@ -37,6 +43,13 @@ const ensureArtifactsDir = () => {
   mkdirSync(artifactsDir, { recursive: true });
 };
 
+const renameWithPlatformIfNeeded = (fileName) => {
+  if (/\.ya?ml$/i.test(fileName)) {
+    return `${platformLabel}-${fileName}`;
+  }
+  return fileName;
+};
+
 const collectArtifacts = () => {
   if (!existsSync(releaseDir)) return;
   const entries = readdirSync(releaseDir);
@@ -46,8 +59,9 @@ const collectArtifacts = () => {
     if (!stat.isFile()) continue;
     const matched = ARTIFACT_PATTERNS.some((regex) => regex.test(entry));
     if (!matched) continue;
-    copyFileSync(fullPath, join(artifactsDir, entry));
-    console.log(`[release] artifact ready -> ${entry}`);
+    const targetName = renameWithPlatformIfNeeded(entry);
+    copyFileSync(fullPath, join(artifactsDir, targetName));
+    console.log(`[release] artifact ready -> ${targetName}`);
   }
 };
 
