@@ -75,6 +75,7 @@ jobs:
 
       - name: Verify PAT_TOKEN
         run: |
+          echo "检查 PAT_TOKEN secret..."
           if [ -z "${{ secrets.PAT_TOKEN }}" ]; then
             echo "::error::❌ PAT_TOKEN secret 未设置！"
             echo ""
@@ -82,16 +83,16 @@ jobs:
             echo "1. 创建 PAT: https://github.com/settings/tokens (需要 repo 权限)"
             echo "2. 添加到 Secrets: https://github.com/${{ github.repository }}/settings/secrets/actions"
             echo "3. Secret 名称: PAT_TOKEN"
+            echo "4. 设置完成后，重新运行此 workflow"
             exit 1
           else
-            echo "::notice::✓ PAT_TOKEN 已设置"
+            echo "::notice::✓ PAT_TOKEN 已设置（长度: ${#PAT_TOKEN} 字符）"
+            echo "PAT_TOKEN 前 4 个字符: ${PAT_TOKEN:0:4}..."
           fi
+        env:
+          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
 
       - name: Publish Release
-        env:
-          # 使用 Personal Access Token 来创建 Release
-          # 如果 PAT_TOKEN 未设置，请访问仓库 Settings -> Secrets and variables -> Actions 添加
-          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
         uses: softprops/action-gh-release@v2
         with:
           files: artifacts/**/* 
@@ -99,7 +100,6 @@ jobs:
           name: Release ${{ github.ref_name }}
           draft: false
           prerelease: false
-          # 如果 PAT_TOKEN 未设置，这里会是空字符串，action 会回退到 GITHUB_TOKEN
-          # 但 GITHUB_TOKEN 可能权限不足，所以必须设置 PAT_TOKEN
+          # 必须使用 PAT_TOKEN，不能使用 GITHUB_TOKEN（权限不足）
           token: ${{ secrets.PAT_TOKEN }}
 
