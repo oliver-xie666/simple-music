@@ -1,12 +1,15 @@
 # 更新记录
 
 
+### [0.0.12](https://github.com/oliver-xie666/simple-music/compare/v0.0.11...v0.0.12) (2025-12-01)
+
 ### [0.0.11](https://github.com/oliver-xie666/simple-music/compare/v0.0.10...v0.0.11) (2025-12-01)
 
 ### ♻️ 重构
 
 * 构建脚本为 `builder-debug.yml / latest*.yml` 自动添加平台前缀，避免发布阶段出现重名文件。
 * 产出清单新增 Windows ZIP、macOS ZIP、Linux TAR.GZ 等可解压版本，对齐 [LX Music 桌面版的发布形式](https://github.com/lyswhut/lx-music-desktop)。
+* Windows 额外打包 7z 绿色版与 x86 安装包，Linux 新增 RPM、Pacman、armv7l DEB 等多种发行格式。
 
 ### 🐞 修复
 
