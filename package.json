@@ -14,7 +14,7 @@
     "dev:electron": "cross-env ELECTRON_MODE=true vite",
     "build": "vue-tsc --noEmit && vite build",
     "build:web": "vue-tsc --noEmit && vite build",
-    "build:electron": "vue-tsc --noEmit && cross-env ELECTRON_MODE=true vite build && electron-builder",
+    "build:electron": "vue-tsc --noEmit && cross-env ELECTRON_MODE=true vite build && npx electron-builder",
     "build:electron:release": "node scripts/build-electron-release.mjs",
     "preview": "vite preview",
     "preview:web": "vite preview",
