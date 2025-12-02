@@ -2,7 +2,7 @@
 import { spawnSync } from 'node:child_process';
 import process from 'node:process';
 import { mkdirSync, rmSync, readdirSync, statSync, copyFileSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 
 const PLATFORM_TARGETS = {
   win32: ['--win', 'nsis', '--x64', '--arm64'],
@@ -60,42 +60,43 @@ const collectArtifacts = () => {
     console.error(`[release] ❌ release directory does not exist: ${releaseDir}`);
     return;
   }
-  
-  console.log(`[release] Scanning release directory: ${releaseDir}`);
-  const entries = readdirSync(releaseDir);
-  console.log(`[release] Found ${entries.length} entries in release directory`);
-  
+
+  console.log(`[release] Scanning release directory recursively: ${releaseDir}`);
   let collectedCount = 0;
-  for (const entry of entries) {
-    const fullPath = join(releaseDir, entry);
-    const stat = statSync(fullPath);
-    if (!stat.isFile()) {
-      console.log(`[release] Skipping directory: ${entry}`);
-      continue;
-    }
-    const matched = ARTIFACT_PATTERNS.some((regex) => regex.test(entry));
-    if (!matched) {
-      console.log(`[release] Skipping non-artifact file: ${entry}`);
-      continue;
-    }
-    const targetName = renameWithPlatformIfNeeded(entry);
-    copyFileSync(fullPath, join(artifactsDir, targetName));
-    console.log(`[release] ✓ artifact collected -> ${targetName}`);
-    collectedCount++;
-  }
-  
-  if (collectedCount === 0) {
-    console.error(`[release] ❌ No artifacts collected! Available files:`);
-    entries.forEach(entry => {
-      const fullPath = join(releaseDir, entry);
-      const stat = statSync(fullPath);
-      if (stat.isFile()) {
-        console.error(`[release]   - ${entry}`);
+  const visitedFiles = [];
+
+  const walk = (dir) => {
+    const entries = readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        // 避免扫描 artifacts 目录自身，防止重复拷贝
+        if (fullPath === artifactsDir) {
+          continue;
+        }
+        walk(fullPath);
+      } else if (entry.isFile()) {
+        visitedFiles.push(fullPath.replace(`${releaseDir}${sep}`, 'release/'));
+        const matched = ARTIFACT_PATTERNS.some((regex) => regex.test(entry.name));
+        if (!matched) {
+          continue;
+        }
+        const targetName = renameWithPlatformIfNeeded(entry.name);
+        copyFileSync(fullPath, join(artifactsDir, targetName));
+        console.log(`[release] ✓ artifact collected -> ${targetName}`);
+        collectedCount++;
       }
-    });
+    }
+  };
+
+  walk(releaseDir);
+
+  if (collectedCount === 0) {
+    console.error(`[release] ❌ No artifacts collected! Files visited:`);
+    visitedFiles.forEach((file) => console.error(`[release]   - ${file}`));
     process.exit(1);
   }
-  
+
   console.log(`[release] ✓ Total artifacts collected: ${collectedCount}`);
 };
 
