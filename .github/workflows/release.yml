@@ -19,7 +19,7 @@ jobs:
         include:
           - os: ubuntu-latest
             display: Linux (AppImage x64, deb x64/arm64/armv7l, rpm x64, pacman x64)
-            build_args: "--linux AppImage deb rpm pacman --x64 --arm64 --armv7l"
+            build_args: "--linux AppImage deb rpm --x64 --arm64 --armv7l"
             artifact_name: linux
           - os: macos-latest
             display: macOS (dmg x64 / arm64)

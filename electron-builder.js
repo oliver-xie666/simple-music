@@ -55,10 +55,6 @@ module.exports = {
         arch: ['x64']
       },
       {
-        target: 'pacman',
-        arch: ['x64']
-      },
-      {
         target: 'tar.gz',
         arch: ['x64', 'arm64']
       }
