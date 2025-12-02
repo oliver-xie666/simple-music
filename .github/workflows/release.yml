@@ -18,16 +18,16 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            display: Linux (x64 / arm64)
-            build_args: "--linux AppImage deb --x64 --arm64"
+            display: Linux (AppImage x64, deb x64/arm64/armv7l, rpm x64, pacman x64)
+            build_args: "--linux AppImage deb rpm pacman --x64 --arm64 --armv7l"
             artifact_name: linux
           - os: macos-latest
-            display: macOS (x64 / arm64)
+            display: macOS (dmg x64 / arm64)
             build_args: "--mac dmg --x64 --arm64"
             artifact_name: macos
           - os: windows-latest
-            display: Windows (x64 / arm64)
-            build_args: "--win nsis --x64 --arm64"
+            display: Windows (nsis x64/arm64, 7z x64/arm64)
+            build_args: "--win nsis 7z --x64 --arm64"
             artifact_name: windows
     steps:
       - uses: actions/checkout@v4
