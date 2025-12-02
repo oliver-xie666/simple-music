@@ -56,18 +56,47 @@ const renameWithPlatformIfNeeded = (fileName) => {
 };
 
 const collectArtifacts = () => {
-  if (!existsSync(releaseDir)) return;
+  if (!existsSync(releaseDir)) {
+    console.error(`[release] ❌ release directory does not exist: ${releaseDir}`);
+    return;
+  }
+  
+  console.log(`[release] Scanning release directory: ${releaseDir}`);
   const entries = readdirSync(releaseDir);
+  console.log(`[release] Found ${entries.length} entries in release directory`);
+  
+  let collectedCount = 0;
   for (const entry of entries) {
     const fullPath = join(releaseDir, entry);
     const stat = statSync(fullPath);
-    if (!stat.isFile()) continue;
+    if (!stat.isFile()) {
+      console.log(`[release] Skipping directory: ${entry}`);
+      continue;
+    }
     const matched = ARTIFACT_PATTERNS.some((regex) => regex.test(entry));
-    if (!matched) continue;
+    if (!matched) {
+      console.log(`[release] Skipping non-artifact file: ${entry}`);
+      continue;
+    }
     const targetName = renameWithPlatformIfNeeded(entry);
     copyFileSync(fullPath, join(artifactsDir, targetName));
-    console.log(`[release] artifact ready -> ${targetName}`);
+    console.log(`[release] ✓ artifact collected -> ${targetName}`);
+    collectedCount++;
   }
+  
+  if (collectedCount === 0) {
+    console.error(`[release] ❌ No artifacts collected! Available files:`);
+    entries.forEach(entry => {
+      const fullPath = join(releaseDir, entry);
+      const stat = statSync(fullPath);
+      if (stat.isFile()) {
+        console.error(`[release]   - ${entry}`);
+      }
+    });
+    process.exit(1);
+  }
+  
+  console.log(`[release] ✓ Total artifacts collected: ${collectedCount}`);
 };
 
 const run = (command, args, opts = {}) => {
@@ -86,6 +115,8 @@ run('npx', ['vue-tsc', '--noEmit']);
 run('npx', ['vite', 'build'], { env: sharedEnv });
 // 添加 --publish never 明确禁用发布，发布由 GitHub Actions 的 publish job 处理
 ensureArtifactsDir();
+console.log(`[release] Building with electron-builder: ${resolvedTargets.join(' ')}`);
 run('npx', ['electron-builder', '--publish', 'never', ...resolvedTargets], { env: sharedEnv });
+console.log(`[release] Build completed, collecting artifacts...`);
 collectArtifacts();
 
