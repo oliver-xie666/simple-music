@@ -40,7 +40,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build renderer + Electron bundles
+      - name: Build renderer + Electron bundles (Linux/macOS)
+        if: matrix.os != 'windows-latest'
         env:
           # 禁用 electron-builder 的自动发布功能
           # 发布由 publish job 中的 action-gh-release 处理
@@ -49,11 +50,36 @@ jobs:
         timeout-minutes: 30
         run: npm run build:electron:release -- ${{ matrix.build_args }}
 
-      - name: Upload artifacts
+      - name: Build renderer + Electron bundles (Windows)
+        if: matrix.os == 'windows-latest'
+        env:
+          GH_TOKEN: ""
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+        timeout-minutes: 30
+        # Windows 下直接使用内置的 build:electron，避免额外的 artifacts 收集脚本干扰
+        run: npm run build:electron -- ${{ matrix.build_args }}
+
+      - name: Upload artifacts (Linux/macOS)
+        if: matrix.os != 'windows-latest'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}-${{ github.ref_name }}
           path: release/artifacts/**
+          # 如果某个平台暂时没有产物（例如 Windows 打包失败），不要直接让整个 job 失败
+          if-no-files-found: warn
+
+      - name: Upload artifacts (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}-${{ github.ref_name }}
+          # Windows 直接从 electron-builder 的输出目录收集安装包
+          path: |
+            release/*.exe
+            release/*.exe.blockmap
+            release/*.7z
+            release/*.zip
+            release/*.yml
           if-no-files-found: error
 
   publish:

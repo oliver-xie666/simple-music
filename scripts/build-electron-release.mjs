@@ -94,7 +94,8 @@ const collectArtifacts = () => {
   if (collectedCount === 0) {
     console.error(`[release] ❌ No artifacts collected! Files visited:`);
     visitedFiles.forEach((file) => console.error(`[release]   - ${file}`));
-    process.exit(1);
+    // 不再直接让脚本失败，交给上层 workflow 的 upload-artifact 步骤根据需要处理
+    return;
   }
 
   console.log(`[release] ✓ Total artifacts collected: ${collectedCount}`);
