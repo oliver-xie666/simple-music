@@ -56,16 +56,18 @@ jobs:
           GH_TOKEN: ""
           CSC_IDENTITY_AUTO_DISCOVERY: false
         timeout-minutes: 30
-        # Windows 下直接使用内置的 build:electron，避免额外的 artifacts 收集脚本干扰
-        run: npm run build:electron -- ${{ matrix.build_args }}
-
-      - name: Debug release directory on Windows
-        if: matrix.os == 'windows-latest'
         run: |
-          echo "=== DIR release ==="
-          dir release
-          echo "=== DIR release (recursive) ==="
-          dir release /s
+          echo "=== Start Windows build ==="
+          npm run build:electron -- ${{ matrix.build_args }}
+          echo "=== Check release directory after build ==="
+          if (Test-Path release) {
+            Write-Host "release directory exists:"
+            Get-ChildItem release
+            Write-Host "release directory (recursive):"
+            Get-ChildItem release -Recurse
+          } else {
+            Write-Host "release directory does NOT exist"
+          }
 
       - name: Upload artifacts (Linux/macOS)
         if: matrix.os != 'windows-latest'
