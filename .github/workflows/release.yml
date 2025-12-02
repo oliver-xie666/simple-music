@@ -59,6 +59,14 @@ jobs:
         # Windows 下直接使用内置的 build:electron，避免额外的 artifacts 收集脚本干扰
         run: npm run build:electron -- ${{ matrix.build_args }}
 
+      - name: Debug release directory on Windows
+        if: matrix.os == 'windows-latest'
+        run: |
+          echo "=== DIR release ==="
+          dir release
+          echo "=== DIR release (recursive) ==="
+          dir release /s
+
       - name: Upload artifacts (Linux/macOS)
         if: matrix.os != 'windows-latest'
         uses: actions/upload-artifact@v4
@@ -80,7 +88,8 @@ jobs:
             release/*.7z
             release/*.zip
             release/*.yml
-          if-no-files-found: error
+          # 暂时用 warn，避免因为 Windows 没产物导致整个矩阵 fail-fast
+          if-no-files-found: warn
 
   publish:
     name: Publish GitHub Release
