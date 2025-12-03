@@ -112,14 +112,33 @@ jobs:
         env:
           PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
 
+      - name: List artifacts before publish
+        run: |
+          echo "=== Artifacts structure ==="
+          find artifacts -type f -name "*" | head -50
+          echo "=== Artifacts count ==="
+          find artifacts -type f | wc -l
+
       - name: Publish Release
         uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/**/* 
+          files: |
+            artifacts/**/*.exe
+            artifacts/**/*.exe.blockmap
+            artifacts/**/*.dmg
+            artifacts/**/*.dmg.blockmap
+            artifacts/**/*.AppImage
+            artifacts/**/*.deb
+            artifacts/**/*.rpm
+            artifacts/**/*.7z
+            artifacts/**/*.zip
+            artifacts/**/*.tar.gz
+            artifacts/**/*.yml
           tag_name: ${{ github.ref_name }}
           name: Release ${{ github.ref_name }}
           draft: false
           prerelease: false
+          fail_on_unmatched_files: false
           # 必须使用 PAT_TOKEN，不能使用 GITHUB_TOKEN（权限不足）
           token: ${{ secrets.PAT_TOKEN }}
 
