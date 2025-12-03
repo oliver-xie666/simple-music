@@ -18,16 +18,16 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            display: Linux (AppImage x64, deb x64/arm64/armv7l, rpm x64, pacman x64)
-            build_args: "--linux AppImage deb rpm --x64 --arm64 --armv7l"
+            display: Linux (AppImage x64, deb x64/arm64/armv7l, rpm x64, pacman x64, tar.gz)
+            build_args: "--linux AppImage deb rpm pacman tar.gz --x64 --arm64 --armv7l"
             artifact_name: linux
           - os: macos-latest
-            display: macOS (dmg x64 / arm64)
-            build_args: "--mac dmg --x64 --arm64"
+            display: macOS (dmg x64 / arm64, zip)
+            build_args: "--mac dmg zip --x64 --arm64"
             artifact_name: macos
           - os: windows-latest
-            display: Windows (nsis x64/arm64, 7z x64/arm64)
-            build_args: "--win nsis 7z --x64 --arm64"
+            display: Windows (nsis x64/ia32/arm64, 7z x64/ia32/arm64, zip)
+            build_args: "--win nsis 7z zip --x64 --ia32 --arm64"
             artifact_name: windows
     steps:
       - uses: actions/checkout@v4
@@ -56,18 +56,7 @@ jobs:
           GH_TOKEN: ""
           CSC_IDENTITY_AUTO_DISCOVERY: false
         timeout-minutes: 30
-        run: |
-          echo "=== Start Windows build ==="
-          npm run build:electron -- ${{ matrix.build_args }}
-          echo "=== Check release directory after build ==="
-          if (Test-Path release) {
-            Write-Host "release directory exists:"
-            Get-ChildItem release
-            Write-Host "release directory (recursive):"
-            Get-ChildItem release -Recurse
-          } else {
-            Write-Host "release directory does NOT exist"
-          }
+        run: npm run build:electron:release -- ${{ matrix.build_args }}
 
       - name: Upload artifacts (Linux/macOS)
         if: matrix.os != 'windows-latest'
@@ -83,14 +72,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}-${{ github.ref_name }}
-          # Windows 直接从 electron-builder 的输出目录收集安装包
-          path: |
-            release/*.exe
-            release/*.exe.blockmap
-            release/*.7z
-            release/*.zip
-            release/*.yml
-          # 暂时用 warn，避免因为 Windows 没产物导致整个矩阵 fail-fast
+          path: release/artifacts/**
+          # 如果某个平台暂时没有产物（例如 Windows 打包失败），不要直接让整个 job 失败
           if-no-files-found: warn
 
   publish:

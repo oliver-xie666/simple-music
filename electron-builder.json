@@ -13,15 +13,15 @@
     "target": [
       {
         "target": "nsis",
-        "arch": ["x64", "arm64"]
+        "arch": ["x64", "ia32", "arm64"]
       },
       {
         "target": "7z",
-        "arch": ["x64", "arm64"]
+        "arch": ["x64", "ia32", "arm64"]
       },
       {
         "target": "zip",
-        "arch": ["x64", "arm64"]
+        "arch": ["x64", "ia32", "arm64"]
       }
     ],
     "artifactName": "${name}-${version}-${arch}.${ext}"
@@ -55,6 +55,10 @@
         "arch": ["x64"]
       },
       {
+        "target": "pacman",
+        "arch": ["x64"]
+      },
+      {
         "target": "tar.gz",
         "arch": ["x64", "arm64"]
       }
@@ -68,6 +72,7 @@
     "createDesktopShortcut": true,
     "artifactName": "${name}-${version}-${arch}-Setup.${ext}"
   },
-  "publish": null
+  "publish": null,
+  "generateUpdatesFilesForAllChannels": true
 }
 
