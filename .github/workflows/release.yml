@@ -120,6 +120,7 @@ jobs:
           find artifacts -type f | wc -l
 
       - name: Publish Release
+        continue-on-error: true
         uses: softprops/action-gh-release@v2
         with:
           files: |
@@ -139,6 +140,8 @@ jobs:
           draft: false
           prerelease: false
           fail_on_unmatched_files: false
+          overwrite: true
+          make_latest: true
           # 必须使用 PAT_TOKEN，不能使用 GITHUB_TOKEN（权限不足）
           token: ${{ secrets.PAT_TOKEN }}
 
