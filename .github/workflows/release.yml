@@ -157,3 +157,17 @@ jobs:
           # 必须使用 PAT_TOKEN，不能使用 GITHUB_TOKEN（权限不足）
           token: ${{ secrets.PAT_TOKEN }}
 
+      - name: Ensure release is published
+        run: |
+          if command -v gh &> /dev/null; then
+            gh release edit ${{ github.ref_name }} \
+              --draft=false \
+              --prerelease=false \
+              --latest
+            echo "✓ Release 已设置为公开状态"
+          else
+            echo "::warning::GitHub CLI 不可用，无法强制发布 Release"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+
