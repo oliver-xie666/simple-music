@@ -7,7 +7,7 @@ import { join, sep } from 'node:path';
 const PLATFORM_TARGETS = {
   win32: ['--win', 'nsis', '7z', 'zip', '--x64', '--ia32', '--arm64'],
   darwin: ['--mac', 'dmg', 'zip', '--x64', '--arm64'],
-  linux: ['--linux', 'AppImage', 'deb', 'rpm', 'pacman', 'tar.gz', '--x64', '--arm64', '--armv7l']
+  linux: ['--linux', 'AppImage', 'deb', 'rpm', 'tar.gz', '--x64', '--arm64', '--armv7l']
 };
 
 const userArgs = process.argv.slice(2).filter(Boolean);
