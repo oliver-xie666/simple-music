@@ -119,6 +119,17 @@ jobs:
           echo "=== Artifacts count ==="
           find artifacts -type f | wc -l
 
+      - name: Delete draft release if exists
+        continue-on-error: true
+        run: |
+          if command -v gh &> /dev/null; then
+            gh release delete ${{ github.ref_name }} --yes || echo "Release does not exist or already published"
+          else
+            echo "GitHub CLI not available, skipping draft deletion"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+
       - name: Publish Release
         continue-on-error: true
         uses: softprops/action-gh-release@v2
@@ -142,6 +153,7 @@ jobs:
           fail_on_unmatched_files: false
           overwrite: true
           make_latest: true
+          generate_release_notes: true
           # 必须使用 PAT_TOKEN，不能使用 GITHUB_TOKEN（权限不足）
           token: ${{ secrets.PAT_TOKEN }}
 
